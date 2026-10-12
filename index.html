@@ -122,6 +122,35 @@ body.dark-mode .authbox input {
   border-color: #43586b;
 }
 @media(max-width:800px){.shell{display:block}aside{display:flex;gap:4px;overflow:auto;padding:7px;border-right:0;border-bottom:1px solid var(--line);position:sticky;top:64px;z-index:4}.nav{white-space:nowrap;width:auto;padding:9px}.nav small{display:none}main{padding:15px}.stats{grid-template-columns:repeat(2,1fr)}.grid3{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:1fr}.head h1{font-size:24px}.row{align-items:flex-start;flex-direction:column}.rowactions{width:100%}.rowactions .btn{flex:1}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}}
+/* Fix MedPrep header on mobile */
+.top {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.topright {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.topright .btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .top {
+    align-items: flex-start;
+  }
+
+  .topright {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
 </style></head>
 <body>
 <header class="top"><div class="brand"><span class="logo">M</span>MedPrep <span style="font-size:11px;color:#8292a1;font-weight:500">QUESTION BANK</span></div><div class="topright">

@@ -9,10 +9,126 @@
 <style>
 :root{--navy:#18344e;--blue:#2866a7;--pale:#eaf3fc;--bg:#f4f7fa;--line:#dbe4ec;--muted:#667789;--green:#197447;--greenbg:#eaf7ef;--red:#a43131;--redbg:#fff0f0}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:#1d2935;font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}.top{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}.brand{font-size:20px;font-weight:850;color:var(--navy);display:flex;gap:10px;align-items:center}.logo{background:var(--blue);color:white;border-radius:8px;width:32px;height:32px;display:grid;place-items:center}.topright{display:flex;gap:8px;align-items:center}.shell{max-width:1400px;margin:auto;display:grid;grid-template-columns:225px 1fr;min-height:calc(100vh - 64px)}aside{background:#fff;border-right:1px solid var(--line);padding:20px 12px}.nav{width:100%;text-align:left;border:0;background:transparent;padding:11px 12px;border-radius:8px;color:#4b6072;margin:2px 0}.nav.active,.nav:hover{background:var(--pale);color:var(--blue);font-weight:750}.nav small{display:block;color:#8593a0;font-size:11px;margin:12px 10px 4px;text-transform:uppercase;letter-spacing:1px}main{padding:26px;min-width:0}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;margin-bottom:20px}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--blue);font-weight:850}.head h1{font-size:28px;color:var(--navy);margin:3px 0}.sub,.muted{color:var(--muted)}.btn{border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--navy);font-weight:700;padding:9px 13px}.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.danger{color:var(--red)}.btn.small{font-size:12px;padding:6px 9px}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}.card h2{margin:0 0 13px;font-size:17px;color:var(--navy)}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.stat{background:#fff;border:1px solid var(--line);border-radius:11px;padding:15px}.stat label{display:block;color:var(--muted);font-size:12px}.stat strong{display:block;color:var(--navy);font-size:26px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.tile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:15px;text-align:left}.tile strong{display:block;color:var(--navy)}.tile span{font-size:12px;color:var(--muted)}.notice{background:#fff8e7;border:1px solid #f0dfb1;color:#72510b;border-radius:8px;padding:12px;margin-bottom:15px;font-size:13px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1/-1}.field label{font-size:12px;font-weight:750;color:#42576b}.field input,.field textarea,.field select,.filters input,.filters select{width:100%;border:1px solid #cdd8e2;border-radius:8px;padding:10px;background:#fff}.field textarea{min-height:78px;resize:vertical}.filters{display:grid;grid-template-columns:1fr 200px 160px;gap:10px;margin-bottom:14px}.list{display:grid;gap:10px}.row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px;background:#fff;border:1px solid var(--line);border-radius:10px}.row h3{margin:0 0 5px;font-size:15px;color:var(--navy)}.meta{display:flex;gap:6px;flex-wrap:wrap;color:var(--muted);font-size:12px}.tag{background:#eff4f8;border-radius:5px;padding:2px 7px}.rowactions{display:flex;gap:7px;flex-shrink:0}.question{padding:22px}.question h2{font-size:19px;line-height:1.45}.choice{display:flex;gap:11px;padding:12px;border:1px solid var(--line);border-radius:9px;margin:9px 0;cursor:pointer}.choice:hover{background:#fbfdff;border-color:#9ebfdf}.choice.sel{background:var(--pale);border:2px solid var(--blue);padding:11px}.choice.good{background:var(--greenbg);border-color:#9bcfb0}.choice.bad{background:var(--redbg);border-color:#e4aaaa}.letter{width:25px;height:25px;flex-shrink:0;border:1px solid #cbd6df;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12px}.feedback{padding:12px;border-radius:8px;margin-top:14px}.goodbox{background:var(--greenbg)}.badbox{background:var(--redbg)}.explain{border-top:1px solid var(--line);margin-top:20px;padding-top:18px}.explain h3{font-size:15px;color:var(--navy);margin:18px 0 6px}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:9px;text-align:left;vertical-align:top}th{background:#f0f4f8;color:var(--navy)}.empty{text-align:center;color:var(--muted);padding:28px;border:1px dashed #cbd6df;border-radius:10px;background:white}.hidden{display:none!important}.authbox{max-width:450px;margin:5vh auto}.authbox .field{margin:10px 0}.authbox input{width:100%;border:1px solid #ccd7e1;border-radius:8px;padding:11px}.footer{text-align:center;color:#8794a0;padding:20px;font-size:12px}
+/* MEDPREP DARK MODE */
+body.dark-mode {
+  --navy: #e4edf7;
+  --blue: #78b7ff;
+  --pale: #20364c;
+  --bg: #101820;
+  --line: #354555;
+  --muted: #b0bdca;
+  --green: #79dba5;
+  --greenbg: #173c2b;
+  --red: #ff9999;
+  --redbg: #442626;
+  color: #e4edf7;
+}
+
+body.dark-mode .top,
+body.dark-mode aside,
+body.dark-mode .card,
+body.dark-mode .stat,
+body.dark-mode .tile,
+body.dark-mode .row,
+body.dark-mode .empty {
+  background: #192531;
+  color: #e4edf7;
+  border-color: var(--line);
+}
+
+body.dark-mode .btn {
+  background: #253646;
+  color: #e4edf7;
+  border-color: #43586b;
+}
+
+body.dark-mode .btn.primary {
+  background: #2866a7;
+  color: white;
+  border-color: #2866a7;
+}
+
+body.dark-mode .nav {
+  color: #c0cedb;
+}
+
+body.dark-mode .nav.active,
+body.dark-mode .nav:hover {
+  background: #263d53;
+  color: #9bcaff;
+}
+
+body.dark-mode .field label,
+body.dark-mode .row h3,
+body.dark-mode .tile strong,
+body.dark-mode .stat strong,
+body.dark-mode .card h2,
+body.dark-mode .explain h3,
+body.dark-mode .head h1 {
+  color: #e4edf7;
+}
+
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select,
+body.dark-mode .field input,
+body.dark-mode .field textarea,
+body.dark-mode .field select,
+body.dark-mode .filters input,
+body.dark-mode .filters select {
+  background: #111c26;
+  color: #e4edf7;
+  border-color: #43586b;
+}
+
+body.dark-mode .choice {
+  background: #192531;
+  color: #e4edf7;
+  border-color: #43586b;
+}
+
+body.dark-mode .choice:hover,
+body.dark-mode .choice.sel {
+  background: #263d53;
+}
+
+body.dark-mode th {
+  background: #263746;
+  color: #e4edf7;
+}
+
+body.dark-mode td {
+  border-color: #43586b;
+}
+
+body.dark-mode .tag {
+  background: #293a49;
+  color: #d4e3f2;
+}
+
+body.dark-mode .notice {
+  background: #3a321e;
+  color: #ffe3a0;
+  border-color: #66552b;
+}
+
+body.dark-mode .footer {
+  color: #9cabb9;
+}
+
+body.dark-mode .authbox input {
+  background: #111c26;
+  color: #e4edf7;
+  border-color: #43586b;
+}
 @media(max-width:800px){.shell{display:block}aside{display:flex;gap:4px;overflow:auto;padding:7px;border-right:0;border-bottom:1px solid var(--line);position:sticky;top:64px;z-index:4}.nav{white-space:nowrap;width:auto;padding:9px}.nav small{display:none}main{padding:15px}.stats{grid-template-columns:repeat(2,1fr)}.grid3{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:1fr}.head h1{font-size:24px}.row{align-items:flex-start;flex-direction:column}.rowactions{width:100%}.rowactions .btn{flex:1}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}}
 </style></head>
 <body>
-<header class="top"><div class="brand"><span class="logo">M</span>MedPrep <span style="font-size:11px;color:#8292a1;font-weight:500">QUESTION BANK</span></div><div class="topright"><span id="userLabel" class="muted"></span><button class="btn small" id="authBtn">Sign in</button></div></header>
+<header class="top"><div class="brand"><span class="logo">M</span>MedPrep <span style="font-size:11px;color:#8292a1;font-weight:500">QUESTION BANK</span></div><div class="topright">
+<button class="btn small" id="themeToggle">🌙 Dark mode</button>
+<span id="userLabel" class="muted"></span>
+<button class="btn small" id="authBtn">Sign in</button>
+</div></header>
 <div id="authView" class="authbox card"><div class="eyebrow">Medical learning workspace</div><h1 style="color:var(--navy);margin:3px 0 8px">Welcome to MedPrep</h1><p class="muted">Sign in or create a student account to access your question bank and save your progress.</p><div class="field"><label>Email</label><input id="email" type="email" placeholder="you@example.com" autocomplete="email"></div><div class="field"><label>Password</label><input id="password" type="password" placeholder="At least 8 characters" autocomplete="current-password"></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn primary" id="signIn">Sign in</button><button class="btn" id="signUp">Create account</button></div><p id="authMsg" class="muted"></p><p class="muted" style="font-size:12px">A project owner must configure Supabase first. See SETUP.md.</p></div>
 <div id="appView" class="shell hidden"><aside><button class="nav active" data-page="dashboard">▦ Dashboard</button><button class="nav" data-page="bank">☷ Question bank</button><button class="nav" data-page="bookmarks">☆ Bookmarks</button><button class="nav" data-page="incorrect">↻ Review incorrect</button><button class="nav" data-page="adminDashboard">📊 Admin Dashboard</button>
 <button class="nav" data-page="admin">＋ Manage questions</button></aside><main id="main"></main></div>
@@ -22,6 +138,34 @@ const SUPABASE_URL = "https://zhyvbtsbtcvvzpyeuscc.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_k9BGkncN2EgU_DL6urjE0w_SDYDbhNK";
 let sb=null,user=null,profile=null,questions=[],attempts=[],bookmarks=[],page='dashboard',activeQ=null,selected=null,revealed=false,answerResult=null,sessionIds=[],sessionIndex=0;
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// MedPrep dark mode
+const themeToggle = $('themeToggle');
+
+function updateThemeButton() {
+  if (!themeToggle) return;
+
+  themeToggle.textContent = document.body.classList.contains('dark-mode')
+    ? '☀️ Light mode'
+    : '🌙 Dark mode';
+}
+
+if (localStorage.getItem('medprep-theme') === 'dark') {
+  document.body.classList.add('dark-mode');
+}
+
+updateThemeButton();
+
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+
+    const dark = document.body.classList.contains('dark-mode');
+
+    localStorage.setItem('medprep-theme', dark ? 'dark' : 'light');
+
+    updateThemeButton();
+  });
+}
 function readyConfig(){return SUPABASE_URL.startsWith('https://')&&!SUPABASE_ANON_KEY.startsWith('PASTE_')}
 function msg(s){$('authMsg').textContent=s}
 async function init(){if(!readyConfig()){msg('Setup needed: add your Supabase URL and publishable/anon key to index.html. Follow SETUP.md.');return}

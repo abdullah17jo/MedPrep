@@ -14,7 +14,8 @@
 <body>
 <header class="top"><div class="brand"><span class="logo">M</span>MedPrep <span style="font-size:11px;color:#8292a1;font-weight:500">QUESTION BANK</span></div><div class="topright"><span id="userLabel" class="muted"></span><button class="btn small" id="authBtn">Sign in</button></div></header>
 <div id="authView" class="authbox card"><div class="eyebrow">Medical learning workspace</div><h1 style="color:var(--navy);margin:3px 0 8px">Welcome to MedPrep</h1><p class="muted">Sign in or create a student account to access your question bank and save your progress.</p><div class="field"><label>Email</label><input id="email" type="email" placeholder="you@example.com" autocomplete="email"></div><div class="field"><label>Password</label><input id="password" type="password" placeholder="At least 8 characters" autocomplete="current-password"></div><div style="display:flex;gap:8px;margin-top:14px"><button class="btn primary" id="signIn">Sign in</button><button class="btn" id="signUp">Create account</button></div><p id="authMsg" class="muted"></p><p class="muted" style="font-size:12px">A project owner must configure Supabase first. See SETUP.md.</p></div>
-<div id="appView" class="shell hidden"><aside><button class="nav active" data-page="dashboard">▦ Dashboard</button><button class="nav" data-page="bank">☷ Question bank</button><button class="nav" data-page="bookmarks">☆ Bookmarks</button><button class="nav" data-page="incorrect">↻ Review incorrect</button><button class="nav" data-page="admin">＋ Manage questions</button></aside><main id="main"></main></div>
+<div id="appView" class="shell hidden"><aside><button class="nav active" data-page="dashboard">▦ Dashboard</button><button class="nav" data-page="bank">☷ Question bank</button><button class="nav" data-page="bookmarks">☆ Bookmarks</button><button class="nav" data-page="incorrect">↻ Review incorrect</button><button class="nav" data-page="adminDashboard">📊 Admin Dashboard</button>
+<button class="nav" data-page="admin">＋ Manage questions</button></aside><main id="main"></main></div>
 <div class="footer">MedPrep · Educational use · Verify clinical content against current references before teaching.</div>
 <script>
 const SUPABASE_URL = "https://zhyvbtsbtcvvzpyeuscc.supabase.co";
@@ -32,7 +33,7 @@ $('authBtn').onclick=async()=>{if(user&&sb)await sb.auth.signOut();else{$('authV
 document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{page=b.dataset.page;document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x===b));render()});
 async function loadData(){const q=await sb.from('questions_public').select('*').order('created_at',{ascending:false});if(q.error)throw q.error;questions=q.data||[];if(profile?.role==='admin'){const aq=await sb.from('questions').select('id,specialty,topic,subtopic,difficulty,title,stem,choices,correct_option,summary,reason,pathophys,distractors,pearls,objectives,references,status,created_at').order('created_at',{ascending:false});if(!aq.error)questions=aq.data||questions;}const a=await sb.from('attempts').select('question_id,is_correct,selected_option,created_at');if(a.error)throw a.error;attempts=a.data||[];const b=await sb.from('bookmarks').select('question_id');if(b.error)throw b.error;bookmarks=(b.data||[]).map(x=>x.question_id)}
 function countCorrect(){return attempts.filter(a=>a.is_correct).length}function accuracy(){return attempts.length?Math.round(countCorrect()/attempts.length*100):0}
-function render(){const m=$('main');if(page==='dashboard')m.innerHTML=dashboard();else if(page==='bank')m.innerHTML=bank();else if(page==='bookmarks')m.innerHTML=questionList('Bookmarks',questions.filter(q=>bookmarks.includes(q.id)));else if(page==='incorrect')m.innerHTML=questionList('Review incorrect',questions.filter(q=>attempts.some(a=>a.question_id===q.id&&!a.is_correct)));else if(page==='admin')m.innerHTML=admin();else if(page==='solve')m.innerHTML=solve();bind()}
+function render(){const m=$('main');if(page==='dashboard')m.innerHTML=dashboard();else if(page==='bank')m.innerHTML=bank();else if(page==='bookmarks')m.innerHTML=questionList('Bookmarks',questions.filter(q=>bookmarks.includes(q.id)));else if(page==='incorrect')m.innerHTML=questionList('Review incorrect',questions.filter(q=>attempts.some(a=>a.question_id===q.id&&!a.is_correct)));else if(page==='adminDashboard')m.innerHTML=adminDashboard();else if(page==='admin')m.innerHTML=admin();else if(page==='solve')m.innerHTML=solve();bind()}
 function dashboard(){return `<div class="head"><div><div class="eyebrow">Your learning workspace</div><h1>Dashboard</h1><p class="sub">Build clinical reasoning, one question at a time.</p></div><button class="btn primary" onclick="startSession(questions.map(q=>q.id))">▶ Start studying</button></div><div class="stats"><div class="stat"><label>Available questions</label><strong>${questions.length}</strong></div><div class="stat"><label>Questions answered</label><strong>${attempts.length}</strong></div><div class="stat"><label>Correct attempts</label><strong>${countCorrect()}</strong></div><div class="stat"><label>Accuracy</label><strong>${accuracy()}%</strong></div></div><div class="card"><h2>Browse by specialty</h2><div class="grid3">${[...new Set(questions.map(q=>q.specialty))].map(s=>`<button class="tile" onclick="openSpecialty('${esc(s)}')"><strong>${esc(s)}</strong><span>${questions.filter(q=>q.specialty===s).length} questions</span></button>`).join('')||'<p class="muted">Questions added by the administrator will appear here.</p>'}</div></div><div class="card"><h2>Recently added</h2><div class="list">${questions.slice(0,4).map(row).join('')||'<div class="empty">No published questions yet.</div>'}</div></div>`}
 function row(q){return `<div class="row"><div><h3>${esc(q.title)}</h3><div class="meta"><span class="tag">${esc(q.specialty)}</span><span class="tag">${esc(q.topic)}</span><span>${esc(q.difficulty||'Unrated')}</span></div></div><div class="rowactions"><button class="btn small" onclick="openQuestion('${q.id}')">Open question</button></div></div>`}
 function bank(){return `<div class="head"><div><div class="eyebrow">Study library</div><h1>Question bank</h1><p class="sub">Search and filter available questions.</p></div></div><div class="filters"><input id="search" placeholder="Search title, stem, topic…"><select id="specialty"><option>All specialties</option>${[...new Set(questions.map(q=>q.specialty))].sort().map(s=>`<option>${esc(s)}</option>`).join('')}</select><select id="difficulty"><option>All difficulties</option><option>Basic</option><option>Intermediate</option><option>Advanced</option></select></div><div id="results" class="list">${questions.map(row).join('')||'<div class="empty">No questions available yet.</div>'}</div>`}
@@ -48,6 +49,256 @@ async function submit(){if(selected===null){alert('Choose an answer first.');ret
 async function nextQ(){if(sessionIndex<sessionIds.length-1){sessionIndex++;activeQ=questions.find(q=>q.id===sessionIds[sessionIndex]);selected=null;revealed=false;answerResult=null;render()}else{page='dashboard';render()}}
 function prevQ(){if(sessionIndex>0){sessionIndex--;activeQ=questions.find(q=>q.id===sessionIds[sessionIndex]);selected=null;revealed=false;render()}}
 async function toggleBookmark(id){if(bookmarks.includes(id)){const {error}=await sb.from('bookmarks').delete().eq('question_id',id);if(error)alert(error.message)}else{const {error}=await sb.from('bookmarks').insert({question_id:id});if(error)alert(error.message)}await loadData();render()}
+function adminDashboard(){
+if(profile?.role!=='admin'){
+return `<div class="card"><h2>Administrator access required</h2></div>`;
+}
+setTimeout(loadAdminDashboard,0);
+return `
+<div class="head">
+  <div>
+    <div class="eyebrow">MedPrep Administration</div>
+    <h1>Admin Dashboard</h1>
+    <p class="sub">Monitor registered students, questions and learning activity.</p>
+  </div>
+</div>
+
+<div id="adminDashMessage" class="notice">Loading dashboard statistics...</div>
+
+<div id="adminDashContent" style="display:none">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px">
+
+    <div class="card">
+      <div class="eyebrow">Registered students</div>
+      <h1 id="dashStudents">0</h1>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Active students · 7 days</div>
+      <h1 id="dashActive">0</h1>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Total questions</div>
+      <h1 id="dashQuestions">0</h1>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Total attempts</div>
+      <h1 id="dashAttempts">0</h1>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Overall accuracy</div>
+      <h1 id="dashAccuracy">0%</h1>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Published questions</div>
+      <h1 id="dashPublished">0</h1>
+      <p class="sub">Drafts: <strong id="dashDrafts">0</strong></p>
+    </div>
+
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+
+    <div class="card">
+      <h2>Student registrations</h2>
+      <p class="sub">Registration dates over the last 7 days</p>
+      <canvas id="dashRegistrationChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Published vs draft questions</h2>
+      <canvas id="dashQuestionChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Questions by specialty</h2>
+      <canvas id="dashSpecialtyChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>Student performance</h2>
+      <p class="sub">Top 10 students by number of attempts</p>
+      <canvas id="dashPerformanceChart"></canvas>
+    </div>
+
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h2>Student activity</h2>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:600px">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:10px">Student</th>
+            <th style="text-align:left;padding:10px">Registered</th>
+            <th style="text-align:left;padding:10px">Attempts</th>
+            <th style="text-align:left;padding:10px">Accuracy</th>
+            <th style="text-align:left;padding:10px">Last active</th>
+          </tr>
+        </thead>
+        <tbody id="dashStudentRows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>`;
+}
+
+async function loadAdminDashboard(){
+const message=$('adminDashMessage');
+if(!message||page!=='adminDashboard')return;
+
+try{
+const {data,error}=await sb.rpc('admin_dashboard_stats');
+
+if(error)throw error;
+
+const d=Array.isArray(data)?data[0]:data;
+if(!d)throw new Error('No dashboard data returned.');
+
+const students=d.students||[];
+const totalAttempts=Number(d.total_attempts)||0;
+const correctAttempts=Number(d.correct_attempts)||0;
+
+$('dashStudents').textContent=d.registered_users??0;
+$('dashActive').textContent=d.active_students_7d??0;
+$('dashQuestions').textContent=d.total_questions??0;
+$('dashAttempts').textContent=totalAttempts;
+$('dashAccuracy').textContent=
+(totalAttempts?Math.round(correctAttempts/totalAttempts*100):0)+'%';
+$('dashPublished').textContent=d.published_questions??0;
+$('dashDrafts').textContent=d.draft_questions??0;
+
+const dayLabels=[];
+const registrationCounts=[];
+const today=new Date();
+
+for(let i=6;i>=0;i--){
+const date=new Date(today);
+date.setDate(today.getDate()-i);
+const key=date.toLocaleDateString('en-CA');
+dayLabels.push(date.toLocaleDateString(undefined,{month:'short',day:'numeric'}));
+
+registrationCounts.push(students.filter(s=>
+s.created_at&&new Date(s.created_at).toLocaleDateString('en-CA')===key
+).length);
+}
+
+const specialties={};
+questions.forEach(q=>{
+const name=q.specialty||'Unspecified';
+specialties[name]=(specialties[name]||0)+1;
+});
+
+const topStudents=[...students]
+.sort((a,b)=>(Number(b.total_attempts)||0)-(Number(a.total_attempts)||0))
+.slice(0,10);
+
+$('dashStudentRows').innerHTML=students.map(s=>{
+const attempts=Number(s.total_attempts)||0;
+const correct=Number(s.correct_attempts)||0;
+const accuracy=attempts?Math.round(correct/attempts*100)+'%':'—';
+const registered=s.created_at?new Date(s.created_at).toLocaleDateString():'—';
+const active=s.last_active?new Date(s.last_active).toLocaleString():'Never';
+
+return `<tr>
+<td style="padding:10px;border-top:1px solid #ddd">
+${esc(s.display_name||s.email||'Student')}
+</td>
+<td style="padding:10px;border-top:1px solid #ddd">${esc(registered)}</td>
+<td style="padding:10px;border-top:1px solid #ddd">${attempts}</td>
+<td style="padding:10px;border-top:1px solid #ddd">${accuracy}</td>
+<td style="padding:10px;border-top:1px solid #ddd">${esc(active)}</td>
+</tr>`;
+}).join('')||'<tr><td colspan="5" style="padding:12px">No student accounts yet.</td></tr>';
+
+if(typeof Chart==='undefined'){
+throw new Error('Chart.js did not load. Check your internet connection and Chart.js script.');
+}
+
+if(window.medprepAdminCharts){
+window.medprepAdminCharts.forEach(c=>c.destroy());
+}
+
+window.medprepAdminCharts=[];
+
+function addChart(id,config){
+const canvas=$(id);
+if(canvas)window.medprepAdminCharts.push(new Chart(canvas,config));
+}
+
+addChart('dashRegistrationChart',{
+type:'line',
+data:{
+labels:dayLabels,
+datasets:[{
+label:'Registrations',
+data:registrationCounts,
+borderWidth:2,
+tension:.25
+}]
+},
+options:{responsive:true,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+});
+
+addChart('dashQuestionChart',{
+type:'doughnut',
+data:{
+labels:['Published','Draft'],
+datasets:[{
+data:[Number(d.published_questions)||0,Number(d.draft_questions)||0]
+}]
+},
+options:{responsive:true}
+});
+
+addChart('dashSpecialtyChart',{
+type:'bar',
+data:{
+labels:Object.keys(specialties),
+datasets:[{
+label:'Questions',
+data:Object.values(specialties)
+}]
+},
+options:{responsive:true,indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{precision:0}}}}
+});
+
+addChart('dashPerformanceChart',{
+type:'bar',
+data:{
+labels:topStudents.map(s=>s.display_name||s.email||'Student'),
+datasets:[
+{
+label:'Correct attempts',
+data:topStudents.map(s=>Number(s.correct_attempts)||0)
+},
+{
+label:'Incorrect attempts',
+data:topStudents.map(s=>
+Math.max(0,(Number(s.total_attempts)||0)-(Number(s.correct_attempts)||0))
+)
+}
+]
+},
+options:{
+responsive:true,
+scales:{y:{beginAtZero:true,ticks:{precision:0}}}
+}
+});
+
+message.style.display='none';
+$('adminDashContent').style.display='block';
+
+}catch(e){
+console.error('Admin dashboard error:',e);
+message.style.display='block';
+message.textContent='Could not load dashboard: '+(e.message||'Unknown error');
+}
+                                       }
 function admin(){if(profile?.role!=='admin')return `<div class="head"><div><div class="eyebrow">Content management</div><h1>Manage questions</h1></div></div><div class="notice">Administrator access is required to create and edit questions. Set your own profile role to admin in the Supabase SQL editor after creating your account. See SETUP.md.</div><div class="card"><p>Your account role: <strong>${esc(profile?.role||'student')}</strong></p></div>`;return `<div class="head"><div><div class="eyebrow">Content management</div><h1>Manage questions</h1><p class="sub">Only authorized administrators can publish or edit MCQs.</p></div></div><div class="card"><h2 id="formTitle">Add a question</h2><form id="qform"><input type="hidden" id="qid"><div class="formgrid"><div class="field"><label>Specialty *</label><input id="fSpecialty" required placeholder="General Surgery"></div><div class="field"><label>Topic *</label><input id="fTopic" required placeholder="Trauma"></div><div class="field"><label>Subtopic</label><input id="fSubtopic"></div><div class="field"><label>Difficulty</label><select id="fDifficulty"><option>Basic</option><option selected>Intermediate</option><option>Advanced</option></select></div><div class="field full"><label>Title *</label><input id="fTitle" required></div><div class="field full"><label>Question stem *</label><textarea id="fStem" required></textarea></div>${'ABCDE'.split('').map((l,i)=>`<div class="field"><label>Option ${l} *</label><input id="fC${i}" required></div>`).join('')}<div class="field"><label>Correct answer *</label><select id="fCorrect">${'ABCDE'.split('').map((l,i)=>`<option value="${i}">${l}</option>`).join('')}</select></div><div class="field"><label>Status</label><select id="fStatus"><option value="draft">Draft</option><option value="published" selected>Published</option></select></div><div class="field full"><label>Clinical summary table (one row per line: finding | interpretation | significance)</label><textarea id="fSummary"></textarea></div><div class="field full"><label>Correct-answer explanation *</label><textarea id="fReason" required></textarea></div><div class="field full"><label>Pathophysiology</label><textarea id="fPathophys"></textarea></div><div class="field full"><label>Incorrect-option explanations (one per line: option letter | concept | explanation)</label><textarea id="fDistractors"></textarea></div><div class="field full"><label>High-yield pearls (one per line)</label><textarea id="fPearls"></textarea></div><div class="field full"><label>Educational objective</label><textarea id="fObjectives"></textarea></div><div class="field full"><label>References</label><textarea id="fReferences"></textarea></div></div><div style="text-align:right;margin-top:15px"><button class="btn" type="button" onclick="clearForm()">Clear</button> <button class="btn primary">Save question</button></div></form></div><div class="card"><h2>Published and draft questions</h2><div class="list">${questions.map(q=>`<div class="row"><div><h3>${esc(q.title)}</h3><div class="meta"><span class="tag">${esc(q.specialty)}</span><span class="tag">${esc(q.status)}</span></div></div><div class="rowactions"><button class="btn small" onclick="editQ('${q.id}')">Edit</button><button class="btn small danger" onclick="deleteQ('${q.id}')">Delete</button></div></div>`).join('')}</div></div>`}
 function parseLines(s,min){return s.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>x.split('|').map(y=>y.trim())).filter(x=>x.length>=min)}
 function clearForm(){if($('qform'))$('qform').reset();if($('qid'))$('qid').value='';if($('formTitle'))$('formTitle').textContent='Add a question'}

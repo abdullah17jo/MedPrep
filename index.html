@@ -472,12 +472,10 @@ render();
 function sessionResults(){
 const answers = window.medprepSessionAnswers || [];
 const total = sessionIds.length;
-const answered = answers.length;
 const correct = answers.filter(a => a.isCorrect === true).length;
 const incorrect = answers.filter(a => a.isCorrect === false).length;
-const omitted = Math.max(0, total - answered);
-const percent = answered ? Math.round((correct / answered) * 100) : 0;
-
+const omitted = Math.max(0, total - answers.length);
+const percent = total ? Math.round(correct / total * 100) : 0;
 
 const started = window.medprepSessionStartedAt || Date.now();
 const finished = window.medprepSessionFinishedAt || Date.now();
@@ -485,67 +483,30 @@ const elapsedSeconds = Math.max(0, Math.floor((finished - started) / 1000));
 const minutes = Math.floor(elapsedSeconds / 60);
 const seconds = elapsedSeconds % 60;
 
+return `
+<div class="head">
+<div>
+<div class="eyebrow">MedPrep Results</div>
+<h1>Session Complete!</h1>
+<p class="sub">Here is your performance for this session.</p>
+</div>
+<button class="btn primary" onclick="page='bank';render()">New Test</button>
+</div>
 
-return 
-
-
-
-
-
-MedPrep Results
-
-
-Session Complete!
-
-
-Here is your performance for this session.
-
-
-
-New Test
-
-
-
-
-<div class="card" style="padding:22px;margin-bottom:20px">
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px">
-
-    <div class="card" style="padding:16px">
-      <p class="sub">Total questions</p>
-      <h2>${total}</h2>
-    </div>
-
-    <div class="card" style="padding:16px">
-      <p class="sub">Correct</p>
-      <h2>${correct}</h2>
-    </div>
-
-    <div class="card" style="padding:16px">
-      <p class="sub">Incorrect</p>
-      <h2>${incorrect}</h2>
-    </div>
-
-    <div class="card" style="padding:16px">
-      <p class="sub">Unanswered</p>
-      <h2>${omitted}</h2>
-    </div>
-
-    <div class="card" style="padding:16px">
-      <p class="sub">Score</p>
-      <h2>${percent}%</h2>
-    </div>
-
-    <div class="card" style="padding:16px">
-      <p class="sub">Time spent</p>
-      <h2>${minutes}m ${seconds}s</h2>
-    </div>
-
+<div class="card">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px">
+    <div><p class="sub">Total questions</p><h2>${total}</h2></div>
+    <div><p class="sub">Correct</p><h2>${correct}</h2></div>
+    <div><p class="sub">Incorrect</p><h2>${incorrect}</h2></div>
+    <div><p class="sub">Unanswered</p><h2>${omitted}</h2></div>
+    <div><p class="sub">Score</p><h2>${percent}%</h2></div>
+    <div><p class="sub">Time spent</p><h2>${minutes}m ${seconds}s</h2></div>
   </div>
 </div>
 
-<div class="card" style="padding:22px;margin-bottom:20px">
+<div class="card">
   <h2>Performance Summary</h2>
-  <div style="height:18px;border-radius:10px;overflow:hidden;background:var(--surface,#eee);display:flex;margin:16px 0">
+  <div style="height:18px;border-radius:10px;overflow:hidden;background:#ddd;display:flex;margin:16px 0">
     <div style="width:${total ? correct/total*100 : 0}%;background:#16a34a"></div>
     <div style="width:${total ? incorrect/total*100 : 0}%;background:#dc2626"></div>
     <div style="width:${total ? omitted/total*100 : 0}%;background:#9ca3af"></div>
@@ -553,11 +514,11 @@ New Test
   <p>Green = correct · Red = incorrect · Gray = unanswered</p>
 </div>
 
-<div class="card" style="padding:22px">
+<div class="card">
   <h2>Review Your Answers</h2>
 
   ${answers.length ? answers.map((a,i)=>`
-    <div style="padding:16px 0;border-bottom:1px solid var(--border,#ddd)">
+    <div style="padding:16px 0;border-bottom:1px solid var(--line)">
       <strong>Question ${i+1} — ${a.isCorrect ? 'Correct' : 'Incorrect'}</strong>
       <p style="white-space:pre-line">${esc(a.question?.stem || 'Question text unavailable')}</p>
       <p><strong>Your answer:</strong> ${esc(a.question?.choices?.[a.selectedOption] ?? 'Not available')}</p>
@@ -571,12 +532,8 @@ New Test
   </button>
 </div>
 
-
-
 `;
 }
-
-
 function solve(){
 const q=activeQ;
 if(!q)return '<div class="empty">Question not found.</div>';

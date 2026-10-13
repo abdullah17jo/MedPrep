@@ -1297,7 +1297,82 @@ function parsePastedQuestion() {
 }
 function parseLines(s,min){return s.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>x.split('|').map(y=>y.trim())).filter(x=>x.length>=min)}
 function clearForm(){if($('qform'))$('qform').reset();if($('qid'))$('qid').value='';if($('formTitle'))$('formTitle').textContent='Add a question'}
-async function saveQ(e){e.preventDefault();const id=$('qid').value;const payload={specialty:$('fSpecialty').value.trim(),topic:$('fTopic').value.trim(),subtopic:$('fSubtopic').value.trim(),difficulty:$('fDifficulty').value,title:$('fTitle').value.trim(),stem:$('fStem').value.trim(),choices:'ABCDE'.split('').map((l,i)=>$('fC'+i).value.trim()),correct_option:Number($('fCorrect').value),summary:parseLines($('fSummary').value,3),reason:$('fReason').value.trim(),pathophys:$('fPathophys').value.trim(),distractors:parseLines($('fDistractors').value,3),pearls:$('fPearls').value.split('\n').map(x=>x.trim()).filter(Boolean),objectives:$('fObjectives').value.trim(),references:$('fReferences').value.trim(),status:$('fStatus').value};let res=id?await sb.from('questions').update(payload).eq('id',id):await sb.from('questions').insert({...payload,created_by:user.id});if(res.error){alert(res.error.message);return}alert('Saved.');await loadData();render()}
+async function saveQ(e) {
+  e.preventDefault();
+
+  const id = $('qid').value;
+  const stem = $('fStem').value.trim();
+
+  const choices = 'ABCDE'.split('').map((letter, i) =>
+    $('fC' + i).value.trim()
+  );
+
+  if (!stem) {
+    alert('Please enter the question stem.');
+    $('fStem').focus();
+    return;
+  }
+
+  const missingChoice = choices.findIndex(choice => !choice);
+
+  if (missingChoice !== -1) {
+    alert(
+      'Please fill in answer choice ' +
+      'ABCDE'[missingChoice] + ' before saving.'
+    );
+    $('fC' + missingChoice).focus();
+    return;
+  }
+
+  const specialty =
+    $('fSpecialty').value.trim() || 'General Surgery';
+
+  const topic =
+    $('fTopic').value.trim() || 'General';
+
+  const title =
+    $('fTitle').value.trim() ||
+    stem.replace(/\s+/g, ' ').slice(0, 100);
+
+  const payload = {
+    specialty,
+    topic,
+    subtopic: $('fSubtopic').value.trim(),
+    difficulty: $('fDifficulty').value,
+    title,
+    stem,
+    choices,
+    correct_option: Number($('fCorrect').value),
+    summary: parseLines($('fSummary').value, 3),
+    reason: $('fReason').value.trim(),
+    pathophys: $('fPathophys').value.trim(),
+    distractors: parseLines($('fDistractors').value, 3),
+    pearls: $('fPearls').value
+      .split('\n')
+      .map(x => x.trim())
+      .filter(Boolean),
+    objectives: $('fObjectives').value.trim(),
+    references: $('fReferences').value.trim(),
+    status: $('fStatus').value
+  };
+
+  const res = id
+    ? await sb.from('questions').update(payload).eq('id', id)
+    : await sb.from('questions').insert({
+        ...payload,
+        created_by: user.id
+      });
+
+  if (res.error) {
+    alert('Could not save question: ' + res.error.message);
+    return;
+  }
+
+  alert('Question saved successfully!');
+
+  await loadData();
+  render();
+}
 function editQ(id){const q=questions.find(x=>x.id===id);if(!q)return;const set=(k,v)=>{if($(k))$(k).value=v??''};set('qid',q.id);set('fSpecialty',q.specialty);set('fTopic',q.topic);set('fSubtopic',q.subtopic);set('fDifficulty',q.difficulty);set('fTitle',q.title);set('fStem',q.stem);(q.choices||[]).forEach((v,i)=>set('fC'+i,v));set('fCorrect',q.correct_option);set('fStatus',q.status);set('fSummary',(q.summary||[]).map(r=>r.join(' | ')).join('\n'));set('fReason',q.reason);set('fPathophys',q.pathophys);set('fDistractors',(q.distractors||[]).map(r=>r.join(' | ')).join('\n'));set('fPearls',(q.pearls||[]).join('\n'));set('fObjectives',q.objectives);set('fReferences',q.references);set('formTitle','Edit question');window.scrollTo({top:0,behavior:'smooth'})}
 async function deleteQ(id){if(!confirm('Delete this question? Related attempts/bookmarks may also be deleted.'))return;const {error}=await sb.from('questions').delete().eq('id',id);if(error)alert(error.message);await loadData();render()}
 function bind(){

@@ -231,9 +231,22 @@ $('authBtn').onclick=async()=>{if(user&&sb)await sb.auth.signOut();else{$('authV
 document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{page=b.dataset.page;document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x===b));render()});
 async function loadData(){const q=await sb.from('questions_public').select('*').order('created_at',{ascending:false});if(q.error)throw q.error;questions=q.data||[];if(profile?.role==='admin'){const aq=await sb.from('questions').select('id,specialty,topic,subtopic,difficulty,title,stem,choices,correct_option,summary,reason,pathophys,distractors,pearls,objectives,references,status,created_at').order('created_at',{ascending:false});if(!aq.error)questions=aq.data||questions;}const a=await sb.from('attempts').select('question_id,is_correct,selected_option,created_at');if(a.error)throw a.error;attempts=a.data||[];const b=await sb.from('bookmarks').select('question_id');if(b.error)throw b.error;bookmarks=(b.data||[]).map(x=>x.question_id)}
 function countCorrect(){return attempts.filter(a=>a.is_correct).length}function accuracy(){return attempts.length?Math.round(countCorrect()/attempts.length*100):0}
-function render(){const m=$('main');if(page==='dashboard')m.innerHTML=dashboard();else if(page==='bank')m.innerHTML=bank();else if(page==='bookmarks')m.innerHTML=questionList('Bookmarks',questions.filter(q=>bookmarks.includes(q.id)));else if(page==='incorrect')m.innerHTML=questionList('Review incorrect',questions.filter(q=>attempts.some(a=>a.question_id===q.id&&!a.is_correct)));else if(page==='adminDashboard')m.innerHTML=adminDashboard();else if(page==='admin')m.innerHTML=admin();else if(page==='solve')m.innerHTML=solve();
-if(page==='admin'&&profile?.role==='admin')addPasteEditor();
-bind()}
+function render(){
+  const m=$('main');
+
+  if(page==='dashboard')m.innerHTML=dashboard();
+  else if(page==='bank')m.innerHTML=bank();
+  else if(page==='bookmarks')m.innerHTML=questionList('Bookmarks',questions.filter(q=>bookmarks.includes(q.id)));
+  else if(page==='incorrect')m.innerHTML=questionList('Review incorrect',questions.filter(q=>attempts.some(a=>a.question_id===q.id&&!a.is_correct)));
+  else if(page==='adminDashboard')m.innerHTML=adminDashboard();
+  else if(page==='admin')m.innerHTML=admin();
+  else if(page==='solve')m.innerHTML=solve();
+  else if(page==='sessionResults')m.innerHTML=sessionResults();
+
+  if(page==='admin'&&profile?.role==='admin')addPasteEditor();
+
+  bind();
+}
 function dashboard(){return `<div class="head"><div><div class="eyebrow">Your learning workspace</div><h1>Dashboard</h1><p class="sub">Build clinical reasoning, one question at a time.</p></div><button class="btn primary" onclick="startSession(questions.map(q=>q.id))">▶ Start studying</button></div><div class="stats"><div class="stat"><label>Available questions</label><strong>${questions.length}</strong></div><div class="stat"><label>Questions answered</label><strong>${attempts.length}</strong></div><div class="stat"><label>Correct attempts</label><strong>${countCorrect()}</strong></div><div class="stat"><label>Accuracy</label><strong>${accuracy()}%</strong></div></div><div class="card"><h2>Browse by specialty</h2><div class="grid3">${[...new Set(questions.map(q=>q.specialty))].map(s=>`<button class="tile" onclick="openSpecialty('${esc(s)}')"><strong>${esc(s)}</strong><span>${questions.filter(q=>q.specialty===s).length} questions</span></button>`).join('')||'<p class="muted">Questions added by the administrator will appear here.</p>'}</div></div><div class="card"><h2>Recently added</h2><div class="list">${questions.slice(0,4).map(row).join('')||'<div class="empty">No published questions yet.</div>'}</div></div>`}
 function row(q){return `<div class="row"><div><h3>${esc(q.title)}</h3><div class="meta"><span class="tag">${esc(q.specialty)}</span><span class="tag">${esc(q.topic)}</span><span>${esc(q.difficulty||'Unrated')}</span></div></div><div class="rowactions"><button class="btn small" onclick="openQuestion('${q.id}')">Open question</button></div></div>`}
 function bank(){
@@ -433,7 +446,137 @@ function startConfiguredSession(){
   startSession(selectedQuestions.map(q => q.id));
 }
 async function openQuestion(id){activeQ=questions.find(q=>q.id===id);selected=null;revealed=false;answerResult=null;sessionIds=[id];sessionIndex=0;page='solve';render()}
-function startSession(ids){if(!ids.length){alert('No questions available yet.');return}sessionIds=ids;sessionIndex=0;activeQ=questions.find(q=>q.id===ids[0]);selected=null;revealed=false;answerResult=null;page='solve';render()}
+function startSession(ids){
+if(!ids.length){
+alert('No questions available yet.');
+return;
+}
+
+sessionIds = ids;
+sessionIndex = 0;
+activeQ = questions.find(q => q.id === ids[0]);
+
+selected = null;
+revealed = false;
+answerResult = null;
+
+// Initialize tracking for this session only.
+window.medprepSessionAnswers = [];
+window.medprepSessionStartedAt = Date.now();
+window.medprepSessionFinishedAt = null;
+
+// Start the session.
+page = 'solve';
+render();
+}
+function sessionResults(){
+const answers = window.medprepSessionAnswers || [];
+const total = sessionIds.length;
+const answered = answers.length;
+const correct = answers.filter(a => a.isCorrect === true).length;
+const incorrect = answers.filter(a => a.isCorrect === false).length;
+const omitted = Math.max(0, total - answered);
+const percent = answered ? Math.round((correct / answered) * 100) : 0;
+
+
+const started = window.medprepSessionStartedAt || Date.now();
+const finished = window.medprepSessionFinishedAt || Date.now();
+const elapsedSeconds = Math.max(0, Math.floor((finished - started) / 1000));
+const minutes = Math.floor(elapsedSeconds / 60);
+const seconds = elapsedSeconds % 60;
+
+
+return `
+
+
+
+
+
+MedPrep Results
+
+
+Session Complete!
+
+
+Here is your performance for this session.
+
+
+
+New Test
+
+
+
+
+<div class="card" style="padding:22px;margin-bottom:20px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px">
+
+    <div class="card" style="padding:16px">
+      <p class="sub">Total questions</p>
+      <h2>${total}</h2>
+    </div>
+
+    <div class="card" style="padding:16px">
+      <p class="sub">Correct</p>
+      <h2>${correct}</h2>
+    </div>
+
+    <div class="card" style="padding:16px">
+      <p class="sub">Incorrect</p>
+      <h2>${incorrect}</h2>
+    </div>
+
+    <div class="card" style="padding:16px">
+      <p class="sub">Unanswered</p>
+      <h2>${omitted}</h2>
+    </div>
+
+    <div class="card" style="padding:16px">
+      <p class="sub">Score</p>
+      <h2>${percent}%</h2>
+    </div>
+
+    <div class="card" style="padding:16px">
+      <p class="sub">Time spent</p>
+      <h2>${minutes}m ${seconds}s</h2>
+    </div>
+
+  </div>
+</div>
+
+<div class="card" style="padding:22px;margin-bottom:20px">
+  <h2>Performance Summary</h2>
+  <div style="height:18px;border-radius:10px;overflow:hidden;background:var(--surface,#eee);display:flex;margin:16px 0">
+    <div style="width:${total ? correct/total*100 : 0}%;background:#16a34a"></div>
+    <div style="width:${total ? incorrect/total*100 : 0}%;background:#dc2626"></div>
+    <div style="width:${total ? omitted/total*100 : 0}%;background:#9ca3af"></div>
+  </div>
+  <p>Green = correct · Red = incorrect · Gray = unanswered</p>
+</div>
+
+<div class="card" style="padding:22px">
+  <h2>Review Your Answers</h2>
+
+  ${answers.length ? answers.map((a,i)=>`
+    <div style="padding:16px 0;border-bottom:1px solid var(--border,#ddd)">
+      <strong>Question ${i+1} — ${a.isCorrect ? 'Correct' : 'Incorrect'}</strong>
+      <p style="white-space:pre-line">${esc(a.question?.stem || 'Question text unavailable')}</p>
+      <p><strong>Your answer:</strong> ${esc(a.question?.choices?.[a.selectedOption] ?? 'Not available')}</p>
+      <p><strong>Correct answer:</strong> ${esc(a.question?.choices?.[a.correctOption] ?? 'Not available')}</p>
+      ${explanation({...a.question,...(a.result||{})})}
+    </div>
+  `).join('') : '<p>No answers were recorded for this session.</p>'}
+
+  <button class="btn primary" style="margin-top:20px" onclick="page='bank';render()">
+    Start Another Test
+  </button>
+</div>
+
+
+
+`;
+}
+
+
 function solve(){
 const q=activeQ;
 if(!q)return '<div class="empty">Question not found.</div>';
@@ -465,8 +608,80 @@ ${revealed?`<button class="btn primary" onclick="nextQ()">Next question →</but
 }
 function explanation(q){const sum=q.summary||[],dist=q.distractors||[],pearls=q.pearls||[];return `<div class="explain"><h3>Clinical summary</h3>${sum.length?`<div class="tablewrap"><table><thead><tr><th>Finding</th><th>Interpretation</th><th>Significance</th></tr></thead><tbody>${sum.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No summary table added.</p>'}<h3>Why the correct answer is correct</h3><p>${esc(q.reason||'No explanation added.')}</p><h3>Pathophysiology</h3><p>${esc(q.pathophys||'Not provided.')}</p><h3>Why the other options are incorrect</h3>${dist.length?`<div class="tablewrap"><table><thead><tr><th>Option</th><th>Concept</th><th>Explanation</th></tr></thead><tbody>${dist.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No distractor explanations added.</p>'}<h3>High-yield exam pearls</h3><ul>${pearls.map(p=>`<li>${esc(p)}</li>`).join('')||'<li>Not provided.</li>'}</ul><h3>Educational objective</h3><p>${esc(q.objectives||'Not provided.')}</p><h3>References</h3><p>${esc(q.references||'No references provided. Verify content against current trusted sources.')}</p></div>`}
 function choose(i){if(revealed)return;selected=i;document.querySelectorAll('.choice').forEach((e,j)=>e.classList.toggle('sel',i===j))}
-async function submit(){if(selected===null){alert('Choose an answer first.');return}const {data,error}=await sb.rpc('submit_mcq_answer',{p_question_id:activeQ.id,p_selected_option:selected});if(error){alert('Could not submit answer: '+error.message);return}answerResult=data;revealed=true;await loadData();render()}
-async function nextQ(){if(sessionIndex<sessionIds.length-1){sessionIndex++;activeQ=questions.find(q=>q.id===sessionIds[sessionIndex]);selected=null;revealed=false;answerResult=null;render()}else{page='dashboard';render()}}
+async function submit(){
+if(selected===null){
+alert('Choose an answer first.');
+return;
+}
+
+const mode=window.medprepSessionConfig?.mode||'tutor';
+
+const {data,error}=await sb.rpc('submit_mcq_answer',{
+p_question_id:activeQ.id,
+p_selected_option:selected
+});
+
+if(error){
+alert('Could not submit answer: '+error.message);
+return;
+}
+
+answerResult=data;
+
+// Record the answer for this session only.
+if(!window.medprepSessionAnswers){
+window.medprepSessionAnswers=[];
+}
+
+const sessionAnswer={
+questionId:activeQ.id,
+selectedOption:selected,
+isCorrect:data.is_correct,
+correctOption:data.correct_option,
+question:activeQ,
+result:data
+};
+
+const existingIndex=window.medprepSessionAnswers.findIndex(
+a=>a.questionId===activeQ.id
+);
+
+if(existingIndex>=0){
+window.medprepSessionAnswers[existingIndex]=sessionAnswer;
+}else{
+window.medprepSessionAnswers.push(sessionAnswer);
+}
+
+if(mode==='tutor'){
+revealed=true;
+await loadData();
+render();
+}else{
+revealed=false;
+await loadData();
+await nextQ();
+}
+}
+}async function nextQ(){
+  if(sessionIndex < sessionIds.length - 1){
+    sessionIndex++;
+    activeQ = questions.find(q => q.id === sessionIds[sessionIndex]);
+    selected = null;
+    revealed = false;
+    answerResult = null;
+    render();
+  }else{
+    const mode = window.medprepSessionConfig?.mode || 'tutor';
+
+    if(mode === 'exam' || mode === 'timed'){
+      page = 'sessionResults';
+    }else{
+      page = 'dashboard';
+    }
+
+    render();
+  }
+}
 function prevQ(){if(sessionIndex>0){sessionIndex--;activeQ=questions.find(q=>q.id===sessionIds[sessionIndex]);selected=null;revealed=false;render()}}
 async function toggleBookmark(id){if(bookmarks.includes(id)){const {error}=await sb.from('bookmarks').delete().eq('question_id',id);if(error)alert(error.message)}else{const {error}=await sb.from('bookmarks').insert({question_id:id});if(error)alert(error.message)}await loadData();render()}
 function adminDashboard(){

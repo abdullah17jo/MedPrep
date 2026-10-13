@@ -1256,7 +1256,7 @@ async function saveQ(e) {
   await loadData();
   render();
 }
-// MEDPREP: PASTE AND FORMAT QUESTIONS
+// MEDPREP: BULK MCQ IMPORT
 
 function addPasteEditor() {
   if (document.getElementById('pasteQuestionCard')) return;
@@ -1266,260 +1266,337 @@ function addPasteEditor() {
 
   formCard.insertAdjacentHTML('beforebegin', `
     <div class="card" id="pasteQuestionCard">
-      <h2>📋 Paste & Format Questions</h2>
+      <h2>📚 Bulk MCQ Import</h2>
+
       <p class="muted">
-        Paste a complete MCQ below to automatically fill the existing form.
+        Paste multiple medical questions below. Separate each question
+        with a line containing three dashes: ---
       </p>
 
+      <div class="notice">
+        Questions are imported as drafts so you can review them before
+        publishing. Each question must have options A–E and a correct answer.
+      </div>
+
       <div class="field">
-        <label>Paste your complete question</label>
-        <textarea id="pasteQuestionText"
-          style="min-height:260px"
-          placeholder="Paste question, options A–E, correct answer and explanation..."></textarea>
+        <label>Questions to import</label>
+
+        <textarea
+          id="bulkQuestionText"
+          style="min-height:350px"
+          placeholder="Paste multiple questions here..."
+        ></textarea>
       </div>
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button class="btn primary" type="button" id="parseQuestionBtn">
-          📋 Fill Question Fields
+
+        <button
+          class="btn"
+          type="button"
+          id="previewBulkBtn">
+          🔍 Preview Questions
         </button>
 
-        <button class="btn" type="button" id="generateAIQuestionBtn">
-          ✨ Generate Missing Explanations with AI
+        <button
+          class="btn primary"
+          type="button"
+          id="importBulkBtn"
+          disabled>
+          💾 Import All as Drafts
         </button>
+
       </div>
 
-      <p id="pasteQuestionMessage" class="muted"></p>
+      <div id="bulkQuestionMessage"
+           class="muted"
+           style="margin-top:14px;white-space:pre-line"></div>
+
+      <div id="bulkQuestionPreview"
+           style="margin-top:14px"></div>
     </div>
   `);
 
-  document.getElementById('parseQuestionBtn').onclick = parsePastedQuestion;
+  document.getElementById('previewBulkBtn').onclick =
+    previewBulkQuestions;
 
-  document.getElementById('generateAIQuestionBtn').onclick = function() {
-    alert(
-      'AI generation is not connected yet. We will connect it securely in the next step.'
-    );
-  };
+  document.getElementById('importBulkBtn').onclick =
+    importBulkQuestions;
 }
-function parsePastedQuestion() {
-  const text = document.getElementById('pasteQuestionText').value.trim();
-  const message = document.getElementById('pasteQuestionMessage');
 
-  if (!text) {
-    message.textContent = 'Please paste a question first.';
-    return;
+
+let medprepBulkQuestions = [];
+
+
+function parseBulkQuestions() {
+  const input = document.getElementById('bulkQuestionText').value.trim();
+
+  if (!input) {
+    throw new Error('Please paste at least one question.');
   }
 
-  // Find the five answer choices.
-  const options = {};
-  const optionRegex = /^\s*([A-E])[.)]\s*(.+?)\s*$/gm;
-  let match;
+  // Each question must be separated by a line containing ---
+  const blocks = input
+    .split(/^\s*---+\s*$/m)
+    .map(x => x.trim())
+    .filter(Boolean);
 
-  while ((match = optionRegex.exec(text)) !== null) {
-    options[match[1].toUpperCase()] = match[2].trim();
-  }
+  const parsed = [];
+  const errors = [];
 
-  const letters = 'ABCDE';
+  blocks.forEach((block, index) => {
+    const number = index + 1;
 
-  const missingOptions = letters
-    .split('')
-    .filter(letter => !options[letter]);
+    const optionRegex = /^\s*([A-E])[.)]\s*(.+?)\s*$/gm;
+    const options = {};
+    let match;
 
-  if (missingOptions.length > 0) {
-    message.textContent =
-      'Missing answer choice(s): ' + missingOptions.join(', ') +
-      '. Please use A. Option text, B. Option text, and so on.';
-    return;
-  }
-
-  // Recognize common correct-answer formats.
-  const answerPatterns = [
-    /(?:the\s+)?correct\s+answer\s*(?:is|:|-)\s*([A-E])\b/i,
-    /correct\s+option\s*(?:is|:|-)\s*([A-E])\b/i,
-    /(?:the\s+)?answer\s*(?:is|:|-)\s*([A-E])\b/i
-  ];
-
-  let correctLetter = '';
-
-  for (const pattern of answerPatterns) {
-    const answerMatch = text.match(pattern);
-
-    if (answerMatch) {
-      correctLetter = answerMatch[1].toUpperCase();
-      break;
+    while ((match = optionRegex.exec(block)) !== null) {
+      options[match[1]] = match[2].trim();
     }
-  }
 
-  if (!correctLetter || !options[correctLetter]) {
-    message.textContent =
-      'Could not identify the correct answer. Add a line such as: Correct answer: B';
-    return;
-  }
+    const missing = 'ABCDE'
+      .split('')
+      .filter(letter => !options[letter]);
 
-  // Find the beginning of the answer choices.
-  const firstOption = text.search(/^\s*[A-E][.)]\s+/m);
+    if (missing.length) {
+      errors.push(
+        `Question ${number}: missing option(s) ${missing.join(', ')}.`
+      );
+      return;
+    }
 
-  if (firstOption === -1) {
-    message.textContent = 'Could not locate the answer choices.';
-    return;
-  }
-
-  let questionText = text.slice(0, firstOption).trim();
-
-  // Extract an explicitly provided title, if present.
-  const titleMatch = questionText.match(/^Title\s*:\s*(.+)$/im);
-  const explicitTitle = titleMatch ? titleMatch[1].trim() : '';
-
-  // Remove metadata labels from the question stem.
-  questionText = questionText
-    .replace(/^Title\s*:\s*.+(?:\r?\n|$)/im, '')
-    .replace(/^(?:Question|Stem)\s*:\s*/i, '')
-    .trim();
-
-  const setValue = (id, value) => {
-    const field = document.getElementById(id);
-    if (field) field.value = value;
-  };
-
-  // Extract a labeled section until the next recognized section.
-  const section = (heading, nextHeadings) => {
-    const allHeadings = nextHeadings
-      .split('|')
-      .filter(Boolean)
-      .join('|');
-
-    const regex = new RegExp(
-      '(?:^|\\n)\\s*(?:' + heading +
-      ')\\s*:\\s*([\\s\\S]*?)(?=\\n\\s*(?:' +
-      allHeadings + ')\\s*:|$)',
-      'i'
+    const answerMatch = block.match(
+      /(?:correct\s+answer|correct\s+option|answer)\s*(?:is|:|-)\s*([A-E])\b/i
     );
 
-    const result = text.match(regex);
-    return result ? result[1].trim() : '';
-  };
+    if (!answerMatch) {
+      errors.push(
+        `Question ${number}: correct answer not found.`
+      );
+      return;
+    }
 
-  const otherSections =
-    'correct answer explanation|explanation|rationale|' +
-    'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?|' +
-    'educational objectives?|references?|clinical summary|' +
-    'summary table|incorrect option explanations|' +
-    'distractor explanations';
+    const correctLetter = answerMatch[1].toUpperCase();
 
-  // Fill the basic question fields.
-  setValue(
-    'fTitle',
-    explicitTitle || questionText.split('\n')[0].slice(0, 150)
-  );
+    const firstOption = block.search(/^\s*[A-E][.)]\s+/m);
 
-  setValue('fStem', questionText);
+    let stem = block.slice(0, firstOption).trim();
 
-  if (!document.getElementById('fSpecialty').value.trim()) {
-    setValue('fSpecialty', 'General Surgery');
-  }
+    stem = stem
+      .replace(/^Question\s*:\s*/i, '')
+      .trim();
 
-  if (!document.getElementById('fTopic').value.trim()) {
-    setValue('fTopic', 'General');
-  }
+    if (!stem) {
+      errors.push(
+        `Question ${number}: question text is missing.`
+      );
+      return;
+    }
 
-  letters.split('').forEach((letter, index) => {
-    setValue('fC' + index, options[letter]);
+    const extractSection = (heading, nextHeadings) => {
+      const next = nextHeadings
+        .map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('|');
+
+      const regex = new RegExp(
+        '^\\s*(?:' + heading + ')\\s*:\\s*([\\s\\S]*?)' +
+        '(?=^\\s*(?:' + next + ')\\s*:|$)',
+        'im'
+      );
+
+      return (block.match(regex)?.[1] || '').trim();
+    };
+
+    const reason = extractSection(
+      'Correct Answer Explanation|Explanation|Rationale',
+      [
+        'Pathophysiology',
+        'Pathophys',
+        'High-Yield Pearls',
+        'High-Yield Exam Pearls',
+        'Educational Objective',
+        'Educational Objectives',
+        'References',
+        'Clinical Summary',
+        'Summary Table',
+        'Incorrect Option Explanations',
+        'Distractor Explanations'
+      ]
+    );
+
+    const pathophys = extractSection(
+      'Pathophysiology|Pathophys',
+      [
+        'Correct Answer Explanation',
+        'Explanation',
+        'Rationale',
+        'High-Yield Pearls',
+        'High-Yield Exam Pearls',
+        'Educational Objective',
+        'Educational Objectives',
+        'References',
+        'Clinical Summary',
+        'Summary Table',
+        'Incorrect Option Explanations',
+        'Distractor Explanations'
+      ]
+    );
+
+    const pearlsText = extractSection(
+      'High-Yield Pearls|High-Yield Exam Pearls',
+      [
+        'Educational Objective',
+        'Educational Objectives',
+        'References',
+        'Clinical Summary',
+        'Summary Table',
+        'Incorrect Option Explanations',
+        'Distractor Explanations'
+      ]
+    );
+
+    const objectives = extractSection(
+      'Educational Objective|Educational Objectives',
+      ['References']
+    );
+
+    const references = extractSection(
+      'References',
+      []
+    );
+
+    const title = stem
+      .replace(/\s+/g, ' ')
+      .slice(0, 100);
+
+    parsed.push({
+      specialty: 'General Surgery',
+      topic: 'General',
+      subtopic: '',
+      difficulty: 'Intermediate',
+      title,
+      stem,
+      choices: 'ABCDE'.split('').map(letter => options[letter]),
+      correct_option: 'ABCDE'.indexOf(correctLetter),
+      summary: [],
+      reason,
+      pathophys,
+      distractors: [],
+      pearls: pearlsText
+        ? pearlsText.split('\n').map(x => x.trim()).filter(Boolean)
+        : [],
+      objectives,
+      references,
+      status: 'draft',
+      created_by: user.id
+    });
   });
 
-  setValue('fCorrect', letters.indexOf(correctLetter));
+  return { parsed, errors, total: blocks.length };
+}
 
-  // Correct-answer explanation.
-  setValue(
-    'fReason',
-    section(
-      'correct answer explanation|explanation|rationale',
-      'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?|' +
-      'educational objectives?|references?|clinical summary|' +
-      'summary table|incorrect option explanations|distractor explanations'
-    )
-  );
 
-  // Pathophysiology.
-  setValue(
-    'fPathophys',
-    section(
-      'pathophysiology|pathophys',
-      'high[- ]yield(?: exam)? pearls?|educational objectives?|' +
-      'references?|clinical summary|summary table|' +
-      'incorrect option explanations|distractor explanations|' +
-      'correct answer explanation|explanation|rationale'
-    )
-  );
+function previewBulkQuestions() {
+  const message = document.getElementById('bulkQuestionMessage');
+  const preview = document.getElementById('bulkQuestionPreview');
+  const importButton = document.getElementById('importBulkBtn');
 
-  // High-yield exam pearls.
-  setValue(
-    'fPearls',
-    section(
-      'high[- ]yield(?: exam)? pearls?',
-      'educational objectives?|references?|clinical summary|' +
-      'summary table|incorrect option explanations|' +
-      'distractor explanations|correct answer explanation|' +
-      'explanation|rationale|pathophysiology|pathophys'
-    )
-  );
+  importButton.disabled = true;
+  preview.innerHTML = '';
+  medprepBulkQuestions = [];
 
-  // Educational objectives.
-  setValue(
-    'fObjectives',
-    section(
-      'educational objectives?',
-      'references?|clinical summary|summary table|' +
-      'incorrect option explanations|distractor explanations|' +
-      'correct answer explanation|explanation|rationale|' +
-      'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?'
-    )
-  );
+  try {
+    const result = parseBulkQuestions();
 
-  // References.
-  setValue(
-    'fReferences',
-    section(
-      'references?',
-      'clinical summary|summary table|incorrect option explanations|' +
-      'distractor explanations|correct answer explanation|' +
-      'explanation|rationale|pathophysiology|pathophys|' +
-      'high[- ]yield(?: exam)? pearls?|educational objectives?'
-    )
-  );
+    if (result.errors.length) {
+      message.textContent =
+        `Found ${result.errors.length} problem(s):\n` +
+        result.errors.join('\n') +
+        '\n\nFix these issues before importing.';
 
-  // Clinical summary table.
-  setValue(
-    'fSummary',
-    section(
-      'clinical summary|high[- ]yield summary|summary table',
-      'correct answer explanation|explanation|rationale|' +
-      'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?|' +
-      'educational objectives?|references?|' +
-      'incorrect option explanations|distractor explanations'
-    )
-  );
+      return;
+    }
 
-  // Explanations for incorrect options.
-  setValue(
-    'fDistractors',
-    section(
-      'incorrect option explanations|distractor explanations',
-      'correct answer explanation|explanation|rationale|' +
-      'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?|' +
-      'educational objectives?|references?|clinical summary|summary table'
-    )
-  );
+    medprepBulkQuestions = result.parsed;
 
-  // Imported questions should be reviewed before publication.
-  setValue('fStatus', 'draft');
+    message.textContent =
+      `Preview successful!\n` +
+      `${result.total} question(s) are ready to import as drafts.`;
 
-  message.textContent =
-    'Question imported! Check the stem, all five options, correct answer, ' +
-    'and explanations before saving. The question is set to Draft.';
+    preview.innerHTML = result.parsed.map((q, i) => `
+      <div class="row" style="margin-bottom:10px">
+        <div>
+          <h3>${esc(i + 1 + '. ' + q.title)}</h3>
+          <div class="meta">
+            <span class="tag">5 answer choices</span>
+            <span class="tag">Answer: ${'ABCDE'[q.correct_option]}</span>
+            <span class="tag">Draft</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
 
-  document.getElementById('qform').scrollIntoView({
-    behavior: 'smooth',
-    block: 'start'
-  });
+    importButton.disabled = false;
+
+  } catch (error) {
+    message.textContent = error.message;
+  }
+}
+
+
+async function importBulkQuestions() {
+  const message = document.getElementById('bulkQuestionMessage');
+  const importButton = document.getElementById('importBulkBtn');
+
+  if (!user || profile?.role !== 'admin') {
+    alert('Administrator access is required.');
+    return;
+  }
+
+  if (!medprepBulkQuestions.length) {
+    alert('Preview the questions before importing.');
+    return;
+  }
+
+  if (!confirm(
+    `Import ${medprepBulkQuestions.length} question(s) as drafts?`
+  )) {
+    return;
+  }
+
+  importButton.disabled = true;
+  message.textContent = 'Importing questions...';
+
+  try {
+    const { error } = await sb
+      .from('questions')
+      .insert(medprepBulkQuestions);
+
+    if (error) {
+      throw error;
+    }
+
+    const count = medprepBulkQuestions.length;
+
+    medprepBulkQuestions = [];
+
+    document.getElementById('bulkQuestionText').value = '';
+    document.getElementById('bulkQuestionPreview').innerHTML = '';
+
+    message.textContent =
+      `Success! ${count} question(s) imported as drafts.`;
+
+    await loadData();
+    render();
+
+  } catch (error) {
+    console.error('Bulk import error:', error);
+
+    message.textContent =
+      'Import failed: ' + error.message;
+
+    importButton.disabled = false;
+  }
 }
 function parseLines(s,min){return s.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>x.split('|').map(y=>y.trim())).filter(x=>x.length>=min)}
 function clearForm(){if($('qform'))$('qform').reset();if($('qid'))$('qid').value='';if($('formTitle'))$('formTitle').textContent='Add a question'}

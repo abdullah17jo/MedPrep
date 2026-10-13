@@ -624,13 +624,111 @@ function admin(){
     `;
   }
 
+  const specialties = [...new Set(
+    questions.map(q => (q.specialty || '').trim()).filter(Boolean)
+  )].sort((a,b)=>a.localeCompare(b));
+
+  const topics = [...new Set(
+    questions.map(q => (q.topic || '').trim()).filter(Boolean)
+  )].sort((a,b)=>a.localeCompare(b));
+
+  const publishedCount = questions.filter(
+    q => q.status === 'published'
+  ).length;
+
+  const draftCount = questions.filter(
+    q => (q.status || 'draft') === 'draft'
+  ).length;
+
   return `
     <div class="head">
       <div>
         <div class="eyebrow">Content management</div>
         <h1>Manage questions</h1>
-        <p class="sub">Create and manage medical MCQs.</p>
+        <p class="sub">Organize, search, edit and publish your medical MCQs.</p>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>📚 Question Library</h2>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:18px">
+        <div class="notice">
+          <strong>Total</strong>
+          <div style="font-size:24px">${questions.length}</div>
+        </div>
+        <div class="notice">
+          <strong>Published</strong>
+          <div style="font-size:24px">${publishedCount}</div>
+        </div>
+        <div class="notice">
+          <strong>Drafts</strong>
+          <div style="font-size:24px">${draftCount}</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>🔎 Search questions</label>
+        <input id="adminQuestionSearch"
+          placeholder="Search title, question text or topic...">
+      </div>
+
+      <div class="formgrid" style="margin-top:12px">
+
+        <div class="field">
+          <label>Status</label>
+          <select id="adminStatusFilter">
+            <option value="all">All questions</option>
+            <option value="published">Published only</option>
+            <option value="draft">Drafts only</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Specialty</label>
+          <select id="adminSpecialtyFilter">
+            <option value="all">All specialties</option>
+            ${specialties.map(s=>`
+              <option value="${esc(s)}">${esc(s)}</option>
+            `).join('')}
+            <option value="__uncategorized">Uncategorized</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Topic</label>
+          <select id="adminTopicFilter">
+            <option value="all">All topics</option>
+            ${topics.map(t=>`
+              <option value="${esc(t)}">${esc(t)}</option>
+            `).join('')}
+            <option value="__uncategorized">Uncategorized</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn small" type="button"
+          onclick="setAdminStatusFilter('all')">
+          All
+        </button>
+        <button class="btn small" type="button"
+          onclick="setAdminStatusFilter('published')">
+          🟢 Published
+        </button>
+        <button class="btn small" type="button"
+          onclick="setAdminStatusFilter('draft')">
+          🟡 Drafts
+        </button>
+        <button class="btn small" type="button"
+          onclick="clearAdminFilters()">
+          Clear filters
+        </button>
+      </div>
+
+      <p id="adminQuestionCount" class="sub" style="margin-top:16px"></p>
+      <div id="adminQuestionList"></div>
     </div>
 
     <div class="card">
@@ -697,7 +795,7 @@ function admin(){
             <label>Status</label>
             <select id="fStatus">
               <option value="draft">Draft</option>
-              <option value="published" selected>Published</option>
+              <option value="published">Published</option>
             </select>
           </div>
 
@@ -748,32 +846,145 @@ function admin(){
         </div>
       </form>
     </div>
+  `;
+}
 
-    <div class="card">
-      <h2>Published and draft questions</h2>
-      <div class="list">
-        ${questions.map(q=>`
-          <div class="row">
-            <div>
-              <h3>${esc(q.title || 'Untitled question')}</h3>
-              <div class="meta">
-                <span class="tag">${esc(q.specialty || 'Uncategorized')}</span>
-                <span class="tag">${esc(q.status || 'draft')}</span>
+
+function renderAdminQuestionList(){
+  const list = document.getElementById('adminQuestionList');
+  if(!list) return;
+
+  const search = (
+    document.getElementById('adminQuestionSearch')?.value || ''
+  ).trim().toLowerCase();
+
+  const status = document.getElementById('adminStatusFilter')?.value || 'all';
+  const specialty = document.getElementById('adminSpecialtyFilter')?.value || 'all';
+  const topic = document.getElementById('adminTopicFilter')?.value || 'all';
+
+  const filtered = questions.filter(q => {
+    const qStatus = q.status || 'draft';
+    const qSpecialty = (q.specialty || '').trim();
+    const qTopic = (q.topic || '').trim();
+
+    if(status !== 'all' && qStatus !== status) return false;
+
+    if(specialty === '__uncategorized' && qSpecialty) return false;
+    if(specialty !== 'all' && specialty !== '__uncategorized' &&
+       qSpecialty !== specialty) return false;
+
+    if(topic === '__uncategorized' && qTopic) return false;
+    if(topic !== 'all' && topic !== '__uncategorized' &&
+       qTopic !== topic) return false;
+
+    const searchable = [
+      q.title, q.stem, q.specialty, q.topic, q.subtopic
+    ].join(' ').toLowerCase();
+
+    return searchable.includes(search);
+  });
+
+  const count = document.getElementById('adminQuestionCount');
+  if(count){
+    count.textContent =
+      `Showing ${filtered.length} of ${questions.length} questions`;
+  }
+
+  if(!filtered.length){
+    list.innerHTML = '<div class="empty">No questions match these filters.</div>';
+    return;
+  }
+
+  const groups = {};
+
+  filtered.forEach(q => {
+    const s = (q.specialty || '').trim() || 'Uncategorized';
+    const t = (q.topic || '').trim() || 'Uncategorized';
+
+    if(!groups[s]) groups[s] = {};
+    if(!groups[s][t]) groups[s][t] = [];
+    groups[s][t].push(q);
+  });
+
+  list.innerHTML = Object.keys(groups).sort().map(s => `
+    <details open style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px">
+      <summary style="cursor:pointer;font-weight:700">
+        📁 ${esc(s)}
+        (${Object.values(groups[s]).reduce((n,arr)=>n+arr.length,0)})
+      </summary>
+
+      ${Object.keys(groups[s]).sort().map(t => `
+        <details open style="margin:12px 0 0 10px;padding:10px;border-left:3px solid var(--line)">
+          <summary style="cursor:pointer;font-weight:600">
+            📂 ${esc(t)} (${groups[s][t].length})
+          </summary>
+
+          ${groups[s][t].map(q => `
+            <div class="row" style="margin-top:12px;gap:10px">
+              <div style="min-width:0;flex:1">
+                <h3>${esc(q.title || 'Untitled question')}</h3>
+                <p class="sub" style="white-space:pre-line">
+                  ${esc((q.stem || '').slice(0,180))}
+                  ${(q.stem || '').length > 180 ? '…' : ''}
+                </p>
+                <div class="meta">
+                  <span class="tag">${esc(q.status || 'draft')}</span>
+                  <span class="tag">${esc(q.difficulty || 'Difficulty not set')}</span>
+                  ${q.subtopic ? `<span class="tag">${esc(q.subtopic)}</span>` : ''}
+                </div>
+              </div>
+
+              <div class="rowactions">
+                <button class="btn small" onclick="editQ('${q.id}')">
+                  Edit
+                </button>
+                <button class="btn small danger" onclick="deleteQ('${q.id}')">
+                  Delete
+                </button>
               </div>
             </div>
-            <div class="rowactions">
-              <button class="btn small" onclick="editQ('${q.id}')">
-                Edit
-              </button>
-              <button class="btn small danger" onclick="deleteQ('${q.id}')">
-                Delete
-              </button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
+          `).join('')}
+        </details>
+      `).join('')}
+    </details>
+  `).join('');
+}
+
+
+function setAdminStatusFilter(status){
+  const el = document.getElementById('adminStatusFilter');
+  if(el) el.value = status;
+  renderAdminQuestionList();
+}
+
+
+function clearAdminFilters(){
+  const search = document.getElementById('adminQuestionSearch');
+  const status = document.getElementById('adminStatusFilter');
+  const specialty = document.getElementById('adminSpecialtyFilter');
+  const topic = document.getElementById('adminTopicFilter');
+
+  if(search) search.value = '';
+  if(status) status.value = 'all';
+  if(specialty) specialty.value = 'all';
+  if(topic) topic.value = 'all';
+
+  renderAdminQuestionList();
+}
+
+
+function bindAdminQuestionFilters(){
+  const search = document.getElementById('adminQuestionSearch');
+  const status = document.getElementById('adminStatusFilter');
+  const specialty = document.getElementById('adminSpecialtyFilter');
+  const topic = document.getElementById('adminTopicFilter');
+
+  if(search) search.addEventListener('input', renderAdminQuestionList);
+  if(status) status.addEventListener('change', renderAdminQuestionList);
+  if(specialty) specialty.addEventListener('change', renderAdminQuestionList);
+  if(topic) topic.addEventListener('change', renderAdminQuestionList);
+
+  renderAdminQuestionList();
 }
 function sessionResults(){
 const answers = window.medprepSessionAnswers || [];

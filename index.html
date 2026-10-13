@@ -1904,6 +1904,7 @@ function bind(){
 
   if(page==='admin'&&profile?.role==='admin'){
     $('qform').addEventListener('submit',saveQ);
+    bindAdminQuestionFilters();
   }
 }
 init();

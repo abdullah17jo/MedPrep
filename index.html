@@ -1074,7 +1074,6 @@ function addPasteEditor() {
     );
   };
 }
-
 function parsePastedQuestion() {
   const text = document.getElementById('pasteQuestionText').value.trim();
   const message = document.getElementById('pasteQuestionMessage');
@@ -1084,6 +1083,7 @@ function parsePastedQuestion() {
     return;
   }
 
+  // Find the five answer choices.
   const options = {};
   const optionRegex = /^\s*([A-E])[.)]\s*(.+?)\s*$/gm;
   let match;
@@ -1092,35 +1092,61 @@ function parsePastedQuestion() {
     options[match[1].toUpperCase()] = match[2].trim();
   }
 
-  if (Object.keys(options).length < 5) {
+  const letters = 'ABCDE';
+
+  const missingOptions = letters
+    .split('')
+    .filter(letter => !options[letter]);
+
+  if (missingOptions.length > 0) {
     message.textContent =
-      'Please include five options, each on its own line, such as A. Option text.';
+      'Missing answer choice(s): ' + missingOptions.join(', ') +
+      '. Please use A. Option text, B. Option text, and so on.';
     return;
   }
 
-  const answerMatch = text.match(
-    /(?:correct\s+answer|correct\s+option|answer)\s*[:\-]\s*([A-E])\b/i
-  );
+  // Recognize common correct-answer formats.
+  const answerPatterns = [
+    /(?:the\s+)?correct\s+answer\s*(?:is|:|-)\s*([A-E])\b/i,
+    /correct\s+option\s*(?:is|:|-)\s*([A-E])\b/i,
+    /(?:the\s+)?answer\s*(?:is|:|-)\s*([A-E])\b/i
+  ];
 
-  if (!answerMatch) {
+  let correctLetter = '';
+
+  for (const pattern of answerPatterns) {
+    const answerMatch = text.match(pattern);
+
+    if (answerMatch) {
+      correctLetter = answerMatch[1].toUpperCase();
+      break;
+    }
+  }
+
+  if (!correctLetter || !options[correctLetter]) {
     message.textContent =
-      'Please include a line such as: Correct answer: B';
+      'Could not identify the correct answer. Add a line such as: Correct answer: B';
     return;
   }
 
-  const correctLetter = answerMatch[1].toUpperCase();
-
-  if (!options[correctLetter]) {
-    message.textContent = 'The correct answer option could not be found.';
-    return;
-  }
-
+  // Find the beginning of the answer choices.
   const firstOption = text.search(/^\s*[A-E][.)]\s+/m);
+
+  if (firstOption === -1) {
+    message.textContent = 'Could not locate the answer choices.';
+    return;
+  }
+
   let questionText = text.slice(0, firstOption).trim();
 
+  // Extract an explicitly provided title, if present.
+  const titleMatch = questionText.match(/^Title\s*:\s*(.+)$/im);
+  const explicitTitle = titleMatch ? titleMatch[1].trim() : '';
+
+  // Remove metadata labels from the question stem.
   questionText = questionText
-    .replace(/^(?:question|stem)\s*:\s*/i, '')
-    .replace(/^title\s*:\s*/i, '')
+    .replace(/^Title\s*:\s*.+(?:\r?\n|$)/im, '')
+    .replace(/^(?:Question|Stem)\s*:\s*/i, '')
     .trim();
 
   const setValue = (id, value) => {
@@ -1128,9 +1154,10 @@ function parsePastedQuestion() {
     if (field) field.value = value;
   };
 
+  // Extract a labeled section until the next recognized section.
   const section = (heading, nextHeadings) => {
-    const allHeadings = [nextHeadings]
-      .flat()
+    const allHeadings = nextHeadings
+      .split('|')
       .filter(Boolean)
       .join('|');
 
@@ -1145,12 +1172,19 @@ function parsePastedQuestion() {
     return result ? result[1].trim() : '';
   };
 
-  const explanation = section(
-    'correct answer explanation|explanation|rationale',
-    'pathophysiology|pathophys|high[- ]yield|educational objective|references?|clinical summary|summary table|incorrect option explanations|distractor explanations'
+  const otherSections =
+    'correct answer explanation|explanation|rationale|' +
+    'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?|' +
+    'educational objectives?|references?|clinical summary|' +
+    'summary table|incorrect option explanations|' +
+    'distractor explanations';
+
+  // Fill the basic question fields.
+  setValue(
+    'fTitle',
+    explicitTitle || questionText.split('\n')[0].slice(0, 150)
   );
 
-  setValue('fTitle', questionText.split('\n')[0].slice(0, 150));
   setValue('fStem', questionText);
 
   if (!document.getElementById('fSpecialty').value.trim()) {
@@ -1161,59 +1195,106 @@ function parsePastedQuestion() {
     setValue('fTopic', 'General');
   }
 
-  'ABCDE'.split('').forEach((letter, index) => {
-    setValue('fC' + index, options[letter] || '');
+  letters.split('').forEach((letter, index) => {
+    setValue('fC' + index, options[letter]);
   });
 
-  setValue('fCorrect', 'ABCDE'.indexOf(correctLetter));
-  setValue('fReason', explanation);
+  setValue('fCorrect', letters.indexOf(correctLetter));
 
+  // Correct-answer explanation.
+  setValue(
+    'fReason',
+    section(
+      'correct answer explanation|explanation|rationale',
+      'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?|' +
+      'educational objectives?|references?|clinical summary|' +
+      'summary table|incorrect option explanations|distractor explanations'
+    )
+  );
+
+  // Pathophysiology.
   setValue(
     'fPathophys',
-    section('pathophysiology|pathophys',
-      'high[- ]yield|educational objective|references?|clinical summary|summary table|incorrect option explanations|distractor explanations|correct answer explanation|explanation|rationale')
+    section(
+      'pathophysiology|pathophys',
+      'high[- ]yield(?: exam)? pearls?|educational objectives?|' +
+      'references?|clinical summary|summary table|' +
+      'incorrect option explanations|distractor explanations|' +
+      'correct answer explanation|explanation|rationale'
+    )
   );
 
+  // High-yield exam pearls.
   setValue(
     'fPearls',
-    section('high[- ]yield(?: exam)? pearls?',
-      'educational objective|references?|clinical summary|summary table|incorrect option explanations|distractor explanations|correct answer explanation|explanation|rationale|pathophysiology|pathophys')
+    section(
+      'high[- ]yield(?: exam)? pearls?',
+      'educational objectives?|references?|clinical summary|' +
+      'summary table|incorrect option explanations|' +
+      'distractor explanations|correct answer explanation|' +
+      'explanation|rationale|pathophysiology|pathophys'
+    )
   );
 
+  // Educational objectives.
   setValue(
     'fObjectives',
-    section('educational objective',
-      'references?|clinical summary|summary table|incorrect option explanations|distractor explanations|correct answer explanation|explanation|rationale|pathophysiology|pathophys|high[- ]yield')
+    section(
+      'educational objectives?',
+      'references?|clinical summary|summary table|' +
+      'incorrect option explanations|distractor explanations|' +
+      'correct answer explanation|explanation|rationale|' +
+      'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?'
+    )
   );
 
+  // References.
   setValue(
     'fReferences',
-    section('references?',
-      'clinical summary|summary table|incorrect option explanations|distractor explanations|correct answer explanation|explanation|rationale|pathophysiology|pathophys|high[- ]yield|educational objective')
+    section(
+      'references?',
+      'clinical summary|summary table|incorrect option explanations|' +
+      'distractor explanations|correct answer explanation|' +
+      'explanation|rationale|pathophysiology|pathophys|' +
+      'high[- ]yield(?: exam)? pearls?|educational objectives?'
+    )
   );
 
+  // Clinical summary table.
   setValue(
     'fSummary',
-    section('clinical summary|high[- ]yield summary|summary table',
-      'correct answer explanation|explanation|rationale|pathophysiology|pathophys|high[- ]yield exam pearls?|educational objective|references?|incorrect option explanations|distractor explanations')
+    section(
+      'clinical summary|high[- ]yield summary|summary table',
+      'correct answer explanation|explanation|rationale|' +
+      'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?|' +
+      'educational objectives?|references?|' +
+      'incorrect option explanations|distractor explanations'
+    )
   );
 
+  // Explanations for incorrect options.
   setValue(
     'fDistractors',
-    section('incorrect option explanations|distractor explanations',
-      'correct answer explanation|explanation|rationale|pathophysiology|pathophys|high[- ]yield|educational objective|references?|clinical summary|summary table')
+    section(
+      'incorrect option explanations|distractor explanations',
+      'correct answer explanation|explanation|rationale|' +
+      'pathophysiology|pathophys|high[- ]yield(?: exam)? pearls?|' +
+      'educational objectives?|references?|clinical summary|summary table'
+    )
   );
 
+  // Imported questions should be reviewed before publication.
   setValue('fStatus', 'draft');
 
   message.textContent =
-    'Success! Review the filled fields, add any missing explanations, and save as a draft.';
+    'Question imported! Check the stem, all five options, correct answer, ' +
+    'and explanations before saving. The question is set to Draft.';
 
   document.getElementById('qform').scrollIntoView({
     behavior: 'smooth',
     block: 'start'
   });
-      }
+}
 function parseLines(s,min){return s.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>x.split('|').map(y=>y.trim())).filter(x=>x.length>=min)}
 function clearForm(){if($('qform'))$('qform').reset();if($('qid'))$('qid').value='';if($('formTitle'))$('formTitle').textContent='Add a question'}
 async function saveQ(e){e.preventDefault();const id=$('qid').value;const payload={specialty:$('fSpecialty').value.trim(),topic:$('fTopic').value.trim(),subtopic:$('fSubtopic').value.trim(),difficulty:$('fDifficulty').value,title:$('fTitle').value.trim(),stem:$('fStem').value.trim(),choices:'ABCDE'.split('').map((l,i)=>$('fC'+i).value.trim()),correct_option:Number($('fCorrect').value),summary:parseLines($('fSummary').value,3),reason:$('fReason').value.trim(),pathophys:$('fPathophys').value.trim(),distractors:parseLines($('fDistractors').value,3),pearls:$('fPearls').value.split('\n').map(x=>x.trim()).filter(Boolean),objectives:$('fObjectives').value.trim(),references:$('fReferences').value.trim(),status:$('fStatus').value};let res=id?await sb.from('questions').update(payload).eq('id',id):await sb.from('questions').insert({...payload,created_by:user.id});if(res.error){alert(res.error.message);return}alert('Saved.');await loadData();render()}

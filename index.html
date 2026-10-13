@@ -486,7 +486,7 @@ const minutes = Math.floor(elapsedSeconds / 60);
 const seconds = elapsedSeconds % 60;
 
 
-return `
+return 
 
 
 
@@ -662,7 +662,8 @@ await loadData();
 await nextQ();
 }
 }
-}async function nextQ(){
+}
+async function nextQ(){
   if(sessionIndex < sessionIds.length - 1){
     sessionIndex++;
     activeQ = questions.find(q => q.id === sessionIds[sessionIndex]);

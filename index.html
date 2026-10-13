@@ -222,11 +222,151 @@ if (themeToggle) {
 }
 function readyConfig(){return SUPABASE_URL.startsWith('https://')&&!SUPABASE_ANON_KEY.startsWith('PASTE_')}
 function msg(s){$('authMsg').textContent=s}
-async function init(){if(!readyConfig()){msg('Setup needed: add your Supabase URL and publishable/anon key to index.html. Follow SETUP.md.');return}
-sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);const {data:{session}}=await sb.auth.getSession();if(session)await onSignedIn(session.user);sb.auth.onAuthStateChange(async(event,session)=>{if(session&&!user){setTimeout(()=>onSignedIn(session.user),0)}else if(!session){user=null;profile=null;$('appView').classList.add('hidden');$('authView').classList.remove('hidden');$('authBtn').textContent='Sign in';$('userLabel').textContent=''}})}
-async function onSignedIn(u){user=u;$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('authBtn').textContent='Sign out';$('userLabel').textContent=u.email||'';try{const {data,error}=await sb.from('profiles').select('id,display_name,role').eq('id',u.id).single();if(error)throw error;profile=data;await loadData();render()}catch(e){console.error(e);alert('Could not load profile/data. Check that SETUP.sql was run and RLS policies are configured. '+e.message)}}
-$('signIn').onclick=async()=>{if(!sb){init();return}const {error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});msg(error?error.message:'Signed in.')}
-$('signUp').onclick=async()=>{if(!sb){init();return}const {data,error}=await sb.auth.signUp({email:$('email').value,password:$('password').value});msg(error?error.message:(data.session?'Account created.':'Account created. Check your email if confirmation is enabled.'))}
+async function init(){
+try{
+if(!readyConfig()){
+msg('Setup needed: check your Supabase URL and key in index.html.');
+return;
+}
+
+if(!window.supabase){
+  msg('Supabase failed to load. Check your internet connection and refresh.');
+  return;
+}
+
+if(!sb){
+  sb=window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  );
+}
+
+const {data,error}=await sb.auth.getSession();
+
+if(error) throw error;
+
+if(data.session){
+  await onSignedIn(data.session.user);
+}
+
+sb.auth.onAuthStateChange((event,session)=>{
+  if(session&&!user){
+    setTimeout(()=>onSignedIn(session.user),0);
+  }else if(!session){
+    user=null;
+    profile=null;
+    $('appView').classList.add('hidden');
+    $('authView').classList.remove('hidden');
+    $('authBtn').textContent='Sign in';
+    $('userLabel').textContent='';
+  }
+});
+
+}catch(e){
+console.error('MedPrep initialization error:',e);
+msg('Connection error: '+(e.message||'Please refresh and try again.'));
+}
+}
+$('signIn').onclick=async()=>{
+const button=$('signIn');
+button.disabled=true;
+msg('Signing in...');
+
+try{
+if(!sb){
+await init();
+}
+
+if(!sb){
+  throw new Error('MedPrep is not connected yet. Refresh the page and try again.');
+}
+
+const {error}=await sb.auth.signInWithPassword({
+  email:$('email').value.trim(),
+  password:$('password').value
+});
+
+if(error) throw error;
+
+msg('Signed in. Loading your account...');
+
+}catch(e){
+console.error('Sign-in error:',e);
+msg(e.message||'Sign-in failed. Please try again.');
+
+}finally{
+button.disabled=false;
+}
+};
+async function onSignedIn(u){
+user=u;
+
+
+$('authView').classList.add('hidden');
+$('appView').classList.remove('hidden');
+$('authBtn').textContent='Sign out';
+$('userLabel').textContent=u.email||'';
+
+
+try{
+const {data,error}=await sb
+.from('profiles')
+.select('id,display_name,role')
+.eq('id',u.id)
+.single();
+
+
+if(error) throw error;
+
+profile=data;
+await loadData();
+render();
+
+
+
+}catch(e){
+console.error('Profile/data loading error:',e);
+alert('Could not load your profile or data: '+e.message);
+}
+}
+
+
+$('signUp').onclick=async()=>{
+const button=$('signUp');
+button.disabled=true;
+msg('Creating account...');
+
+
+try{
+if(!sb) await init();
+
+
+if(!sb){
+  throw new Error('MedPrep is not connected. Refresh and try again.');
+}
+
+const {data,error}=await sb.auth.signUp({
+  email:$('email').value.trim(),
+  password:$('password').value
+});
+
+if(error) throw error;
+
+msg(data.session
+  ? 'Account created successfully!'
+  : 'Account created. Check your email if confirmation is enabled.');
+
+
+
+}catch(e){
+console.error('Sign-up error:',e);
+msg(e.message||'Account creation failed.');
+
+
+}finally{
+button.disabled=false;
+}
+};
 $('authBtn').onclick=async()=>{if(user&&sb)await sb.auth.signOut();else{$('authView').scrollIntoView({behavior:'smooth'})}}
 document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{page=b.dataset.page;document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x===b));render()});
 async function loadData(){const q=await sb.from('questions_public').select('*').order('created_at',{ascending:false});if(q.error)throw q.error;questions=q.data||[];if(profile?.role==='admin'){const aq=await sb.from('questions').select('id,specialty,topic,subtopic,difficulty,title,stem,choices,correct_option,summary,reason,pathophys,distractors,pearls,objectives,references,status,created_at').order('created_at',{ascending:false});if(!aq.error)questions=aq.data||questions;}const a=await sb.from('attempts').select('question_id,is_correct,selected_option,created_at');if(a.error)throw a.error;attempts=a.data||[];const b=await sb.from('bookmarks').select('question_id');if(b.error)throw b.error;bookmarks=(b.data||[]).map(x=>x.question_id)}

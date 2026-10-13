@@ -377,18 +377,17 @@ function render(){
   if(page==='dashboard')m.innerHTML=dashboard();
   else if(page==='bank')m.innerHTML=bank();
   else if(page==='bookmarks')m.innerHTML=questionList('Bookmarks',questions.filter(q=>bookmarks.includes(q.id)));
-  else if(page==='incorrect')m.innerHTML=questionList('Review incorrect',questions.filter(q=>attempts.some(a=>a.question_id===q.id&&!a.is_correct)));
+  else if(page==='incorrect')m.innerHTML=questionList('Review incorrect',questions.filter(a=>attempts.some(a=>a.question_id===q.id&&!a.is_correct)));
   else if(page==='adminDashboard')m.innerHTML=adminDashboard();
   else if(page==='admin')m.innerHTML=admin();
   else if(page==='solve')m.innerHTML=solve();
   else if(page==='sessionResults')m.innerHTML=sessionResults();
 
   if(page==='admin'&&profile?.role==='admin'){
-  addPasteEditor();
-  bindAdminQuestionFilters();
-}
+    addPasteEditor();
+  }
 
-bind();
+  bind();
 }
 function dashboard(){return `<div class="head"><div><div class="eyebrow">Your learning workspace</div><h1>Dashboard</h1><p class="sub">Build clinical reasoning, one question at a time.</p></div><button class="btn primary" onclick="startSession(questions.map(q=>q.id))">▶ Start studying</button></div><div class="stats"><div class="stat"><label>Available questions</label><strong>${questions.length}</strong></div><div class="stat"><label>Questions answered</label><strong>${attempts.length}</strong></div><div class="stat"><label>Correct attempts</label><strong>${countCorrect()}</strong></div><div class="stat"><label>Accuracy</label><strong>${accuracy()}%</strong></div></div><div class="card"><h2>Browse by specialty</h2><div class="grid3">${[...new Set(questions.map(q=>q.specialty))].map(s=>`<button class="tile" onclick="openSpecialty('${esc(s)}')"><strong>${esc(s)}</strong><span>${questions.filter(q=>q.specialty===s).length} questions</span></button>`).join('')||'<p class="muted">Questions added by the administrator will appear here.</p>'}</div></div><div class="card"><h2>Recently added</h2><div class="list">${questions.slice(0,4).map(row).join('')||'<div class="empty">No published questions yet.</div>'}</div></div>`}
 function row(q){return `<div class="row"><div><h3>${esc(q.title)}</h3><div class="meta"><span class="tag">${esc(q.specialty)}</span><span class="tag">${esc(q.topic)}</span><span>${esc(q.difficulty||'Unrated')}</span></div></div><div class="rowactions"><button class="btn small" onclick="openQuestion('${q.id}')">Open question</button></div></div>`}

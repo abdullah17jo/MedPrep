@@ -242,7 +242,35 @@ function openSpecialty(s){page='bank';render();setTimeout(()=>{if($('specialty')
 function filterBank(){const text=$('search').value.toLowerCase(),sp=$('specialty').value,d=$('difficulty').value;const list=questions.filter(q=>(sp==='All specialties'||q.specialty===sp)&&(d==='All difficulties'||q.difficulty===d)&&[q.title,q.stem,q.topic,q.specialty].join(' ').toLowerCase().includes(text));$('results').innerHTML=list.map(row).join('')||'<div class="empty">No matches.</div>'}
 async function openQuestion(id){activeQ=questions.find(q=>q.id===id);selected=null;revealed=false;answerResult=null;sessionIds=[id];sessionIndex=0;page='solve';render()}
 function startSession(ids){if(!ids.length){alert('No questions available yet.');return}sessionIds=ids;sessionIndex=0;activeQ=questions.find(q=>q.id===ids[0]);selected=null;revealed=false;answerResult=null;page='solve';render()}
-function solve(){const q=activeQ;if(!q)return '<div class="empty">Question not found.</div>';const choices=q.choices||[];return `<div class="head"><div><div class="eyebrow">${esc(q.specialty)} / ${esc(q.topic)}</div><h1>Question ${sessionIndex+1}${sessionIds.length>1?' of '+sessionIds.length:''}</h1><p class="sub">${esc(q.difficulty||'Unrated')} · Single best answer</p></div><button class="btn" onclick="page='bank';render()">Exit session</button></div><div class="card question"><div style="display:flex;justify-content:space-between;gap:10px"><span class="tag">${esc(q.topic)}</span><button class="btn small" onclick="toggleBookmark('${q.id}')">${bookmarks.includes(q.id)?'★ Bookmarked':'☆ Bookmark'}</button></div><h2>${esc(q.title)}</h2><p style="white-space:pre-line">${esc(q.stem)}</p><div id="choices">${choices.map((c,i)=>`<div class="choice ${selected===i?'sel':''} ${revealed&&answerResult&&i===answerResult.correct_option?'good':''} ${revealed&&answerResult&&selected===i&&i!==answerResult.correct_option?'bad':''}" onclick="choose(${i})"><span class="letter">${'ABCDE'[i]}</span><span>${esc(c)}</span></div>`).join('')}</div>${revealed?`<div class="feedback ${answerResult?.is_correct?'goodbox':'badbox'}"><strong>${answerResult?.is_correct?'✓ Correct':'✕ Incorrect'}</strong><p>Correct answer: ${'ABCDE'[answerResult?.correct_option ?? 0]}. ${esc(choices[answerResult?.correct_option ?? 0])}</p></div>${explanation({...q,...(answerResult||{})})}`:''}<div style="display:flex;justify-content:space-between;gap:8px;margin-top:18px"><button class="btn" onclick="prevQ()" ${sessionIndex===0?'disabled':''}>← Previous</button>${revealed?`<button class="btn primary" onclick="nextQ()">Next question →</button>`:`<button class="btn primary" onclick="submit()">Submit answer</button>`}</div></div>`}
+function solve(){
+const q=activeQ;
+if(!q)return '<div class="empty">Question not found.</div>';
+
+const choices=q.choices||[];
+
+return `<div class="head">
+
+<div>
+<h1>Question ${sessionIndex+1}${sessionIds.length>1?' of '+sessionIds.length:''}</h1>
+<p class="sub">${esc(q.difficulty||'Unrated')} · Single best answer</p>
+</div>
+<button class="btn" onclick="page='bank';render()">Exit session</button>
+</div><div class="card question"><div style="display:flex;justify-content:flex-end;gap:10px">
+<button class="btn small" onclick="toggleBookmark('${q.id}')">${bookmarks.includes(q.id)?'★ Bookmarked':'☆ Bookmark'}</button>
+</div><p style="white-space:pre-line">${esc(q.stem)}</p><div id="choices">
+${choices.map((c,i)=>`<div class="choice ${selected===i?'sel':''} ${revealed&&answerResult&&i===answerResult.correct_option?'good':''} ${revealed&&answerResult&&selected===i&&i!==answerResult.correct_option?'bad':''}" onclick="choose(${i})">
+<span class="letter">${'ABCDE'[i]}</span>
+<span>${esc(c)}</span>
+</div>`).join('')}
+</div>${revealed?`<div class="feedback ${answerResult?.is_correct?'goodbox':'badbox'}">
+<strong>${selected===null?'No answer selected':answerResult?.is_correct?'✓ Correct':'✕ Incorrect'}</strong>
+
+<p>Correct answer: ${'ABCDE'[answerResult?.correct_option ?? 0]}. ${esc(choices[answerResult?.correct_option ?? 0])}</p>
+</div>${explanation({...q,...(answerResult||{})})}`:''}<div style="display:flex;justify-content:space-between;gap:8px;margin-top:18px">
+<button class="btn" onclick="prevQ()" ${sessionIndex===0?'disabled':''}>← Previous</button>
+${revealed?`<button class="btn primary" onclick="nextQ()">Next question →</button>`:`<button class="btn primary" onclick="submit()">Submit answer</button>`}
+</div></div>`;
+}
 function explanation(q){const sum=q.summary||[],dist=q.distractors||[],pearls=q.pearls||[];return `<div class="explain"><h3>Clinical summary</h3>${sum.length?`<div class="tablewrap"><table><thead><tr><th>Finding</th><th>Interpretation</th><th>Significance</th></tr></thead><tbody>${sum.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No summary table added.</p>'}<h3>Why the correct answer is correct</h3><p>${esc(q.reason||'No explanation added.')}</p><h3>Pathophysiology</h3><p>${esc(q.pathophys||'Not provided.')}</p><h3>Why the other options are incorrect</h3>${dist.length?`<div class="tablewrap"><table><thead><tr><th>Option</th><th>Concept</th><th>Explanation</th></tr></thead><tbody>${dist.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No distractor explanations added.</p>'}<h3>High-yield exam pearls</h3><ul>${pearls.map(p=>`<li>${esc(p)}</li>`).join('')||'<li>Not provided.</li>'}</ul><h3>Educational objective</h3><p>${esc(q.objectives||'Not provided.')}</p><h3>References</h3><p>${esc(q.references||'No references provided. Verify content against current trusted sources.')}</p></div>`}
 function choose(i){if(revealed)return;selected=i;document.querySelectorAll('.choice').forEach((e,j)=>e.classList.toggle('sel',i===j))}
 async function submit(){if(selected===null){alert('Choose an answer first.');return}const {data,error}=await sb.rpc('submit_mcq_answer',{p_question_id:activeQ.id,p_selected_option:selected});if(error){alert('Could not submit answer: '+error.message);return}answerResult=data;revealed=true;await loadData();render()}

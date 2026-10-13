@@ -608,7 +608,6 @@ window.medprepSessionAnswers[existingIndex]=sessionAnswer;
 }else{
 window.medprepSessionAnswers.push(sessionAnswer);
 }
-
 if(mode==='tutor'){
 revealed=true;
 await loadData();
@@ -619,9 +618,7 @@ await loadData();
 await nextQ();
 }
 }
-}
-async function nextQ(){
-  if(sessionIndex < sessionIds.length - 1){
+async function nextQ(){  if(sessionIndex < sessionIds.length - 1){
     sessionIndex++;
     activeQ = questions.find(q => q.id === sessionIds[sessionIndex]);
     selected = null;

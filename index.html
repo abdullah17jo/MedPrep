@@ -609,6 +609,172 @@ window.medprepSessionFinishedAt = null;
 page = 'solve';
 render();
 }
+function admin(){
+  if(profile?.role!=='admin'){
+    return `
+      <div class="head">
+        <div>
+          <div class="eyebrow">Content management</div>
+          <h1>Manage questions</h1>
+        </div>
+      </div>
+      <div class="notice">
+        Administrator access is required to create and edit questions.
+      </div>
+    `;
+  }
+
+  return `
+    <div class="head">
+      <div>
+        <div class="eyebrow">Content management</div>
+        <h1>Manage questions</h1>
+        <p class="sub">Create and manage medical MCQs.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="formTitle">Add a question</h2>
+
+      <form id="qform">
+        <input type="hidden" id="qid">
+
+        <div class="formgrid">
+
+          <div class="field">
+            <label>Specialty (optional)</label>
+            <input id="fSpecialty" placeholder="General Surgery">
+          </div>
+
+          <div class="field">
+            <label>Topic (optional)</label>
+            <input id="fTopic" placeholder="Trauma">
+          </div>
+
+          <div class="field">
+            <label>Subtopic (optional)</label>
+            <input id="fSubtopic">
+          </div>
+
+          <div class="field">
+            <label>Difficulty (optional)</label>
+            <select id="fDifficulty">
+              <option value="">Not specified</option>
+              <option>Basic</option>
+              <option selected>Intermediate</option>
+              <option>Advanced</option>
+            </select>
+          </div>
+
+          <div class="field full">
+            <label>Title (optional)</label>
+            <input id="fTitle">
+          </div>
+
+          <div class="field full">
+            <label>Question stem (optional)</label>
+            <textarea id="fStem"></textarea>
+          </div>
+
+          ${'ABCDE'.split('').map((letter,i)=>`
+            <div class="field">
+              <label>Option ${letter} (optional)</label>
+              <input id="fC${i}">
+            </div>
+          `).join('')}
+
+          <div class="field">
+            <label>Correct answer (optional)</label>
+            <select id="fCorrect">
+              <option value="">Not specified</option>
+              ${'ABCDE'.split('').map((letter,i)=>`
+                <option value="${i}">${letter}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Status</label>
+            <select id="fStatus">
+              <option value="draft">Draft</option>
+              <option value="published" selected>Published</option>
+            </select>
+          </div>
+
+          <div class="field full">
+            <label>Clinical summary (optional)</label>
+            <textarea id="fSummary"></textarea>
+          </div>
+
+          <div class="field full">
+            <label>Correct-answer explanation (optional)</label>
+            <textarea id="fReason"></textarea>
+          </div>
+
+          <div class="field full">
+            <label>Pathophysiology (optional)</label>
+            <textarea id="fPathophys"></textarea>
+          </div>
+
+          <div class="field full">
+            <label>Incorrect-option explanations (optional)</label>
+            <textarea id="fDistractors"></textarea>
+          </div>
+
+          <div class="field full">
+            <label>High-yield pearls (optional)</label>
+            <textarea id="fPearls"></textarea>
+          </div>
+
+          <div class="field full">
+            <label>Educational objective (optional)</label>
+            <textarea id="fObjectives"></textarea>
+          </div>
+
+          <div class="field full">
+            <label>References (optional)</label>
+            <textarea id="fReferences"></textarea>
+          </div>
+
+        </div>
+
+        <div style="text-align:right;margin-top:15px">
+          <button class="btn" type="button" onclick="clearForm()">
+            Clear
+          </button>
+          <button class="btn primary" type="submit">
+            Save question
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Published and draft questions</h2>
+      <div class="list">
+        ${questions.map(q=>`
+          <div class="row">
+            <div>
+              <h3>${esc(q.title || 'Untitled question')}</h3>
+              <div class="meta">
+                <span class="tag">${esc(q.specialty || 'Uncategorized')}</span>
+                <span class="tag">${esc(q.status || 'draft')}</span>
+              </div>
+            </div>
+            <div class="rowactions">
+              <button class="btn small" onclick="editQ('${q.id}')">
+                Edit
+              </button>
+              <button class="btn small danger" onclick="deleteQ('${q.id}')">
+                Delete
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
 function sessionResults(){
 const answers = window.medprepSessionAnswers || [];
 const total = sessionIds.length;

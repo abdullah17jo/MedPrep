@@ -1029,7 +1029,67 @@ message.style.display='block';
 message.textContent='Could not load dashboard: '+(e.message||'Unknown error');
 }
                                        }
-function admin(){if(profile?.role!=='admin')return `<div class="head"><div><div class="eyebrow">Content management</div><h1>Manage questions</h1></div></div><div class="notice">Administrator access is required to create and edit questions. Set your own profile role to admin in the Supabase SQL editor after creating your account. See SETUP.md.</div><div class="card"><p>Your account role: <strong>${esc(profile?.role||'student')}</strong></p></div>`;return `<div class="head"><div><div class="eyebrow">Content management</div><h1>Manage questions</h1><p class="sub">Only authorized administrators can publish or edit MCQs.</p></div></div><div class="card"><h2 id="formTitle">Add a question</h2><form id="qform"><input type="hidden" id="qid"><div class="formgrid"><div class="field"><label>Specialty *</label><input id="fSpecialty" required placeholder="General Surgery"></div><div class="field"><label>Topic *</label><input id="fTopic" required placeholder="Trauma"></div><div class="field"><label>Subtopic</label><input id="fSubtopic"></div><div class="field"><label>Difficulty</label><select id="fDifficulty"><option>Basic</option><option selected>Intermediate</option><option>Advanced</option></select></div><div class="field full"><label>Title *</label><input id="fTitle" required></div><div class="field full"><label>Question stem *</label><textarea id="fStem" required></textarea></div>${'ABCDE'.split('').map((l,i)=>`<div class="field"><label>Option ${l} *</label><input id="fC${i}" required></div>`).join('')}<div class="field"><label>Correct answer *</label><select id="fCorrect">${'ABCDE'.split('').map((l,i)=>`<option value="${i}">${l}</option>`).join('')}</select></div><div class="field"><label>Status</label><select id="fStatus"><option value="draft">Draft</option><option value="published" selected>Published</option></select></div><div class="field full"><label>Clinical summary table (one row per line: finding | interpretation | significance)</label><textarea id="fSummary"></textarea></div><div class="field full"><label>Correct-answer explanation *</label><textarea id="fReason" required></textarea></div><div class="field full"><label>Pathophysiology</label><textarea id="fPathophys"></textarea></div><div class="field full"><label>Incorrect-option explanations (one per line: option letter | concept | explanation)</label><textarea id="fDistractors"></textarea></div><div class="field full"><label>High-yield pearls (one per line)</label><textarea id="fPearls"></textarea></div><div class="field full"><label>Educational objective</label><textarea id="fObjectives"></textarea></div><div class="field full"><label>References</label><textarea id="fReferences"></textarea></div></div><div style="text-align:right;margin-top:15px"><button class="btn" type="button" onclick="clearForm()">Clear</button> <button class="btn primary">Save question</button></div></form></div><div class="card"><h2>Published and draft questions</h2><div class="list">${questions.map(q=>`<div class="row"><div><h3>${esc(q.title)}</h3><div class="meta"><span class="tag">${esc(q.specialty)}</span><span class="tag">${esc(q.status)}</span></div></div><div class="rowactions"><button class="btn small" onclick="editQ('${q.id}')">Edit</button><button class="btn small danger" onclick="deleteQ('${q.id}')">Delete</button></div></div>`).join('')}</div></div>`}
+async function saveQ(e) {
+  e.preventDefault();
+
+  const id = $('qid').value;
+
+  const stem = $('fStem').value.trim();
+
+  const choices = 'ABCDE'.split('').map((letter, i) =>
+    $('fC' + i).value.trim()
+  );
+
+  const specialty =
+    $('fSpecialty').value.trim() || 'General Surgery';
+
+  const topic =
+    $('fTopic').value.trim() || 'General';
+
+  const title =
+    $('fTitle').value.trim() ||
+    stem.replace(/\s+/g, ' ').slice(0, 100) ||
+    'Untitled question';
+
+  const payload = {
+    specialty,
+    topic,
+    subtopic: $('fSubtopic').value.trim(),
+    difficulty: $('fDifficulty').value,
+    title,
+    stem,
+    choices,
+    correct_option: Number($('fCorrect').value) || 0,
+    summary: parseLines($('fSummary').value, 3),
+    reason: $('fReason').value.trim(),
+    pathophys: $('fPathophys').value.trim(),
+    distractors: parseLines($('fDistractors').value, 3),
+    pearls: $('fPearls').value
+      .split('\n')
+      .map(x => x.trim())
+      .filter(Boolean),
+    objectives: $('fObjectives').value.trim(),
+    references: $('fReferences').value.trim(),
+    status: $('fStatus').value
+  };
+
+  const res = id
+    ? await sb.from('questions').update(payload).eq('id', id)
+    : await sb.from('questions').insert({
+        ...payload,
+        created_by: user.id
+      });
+
+  if (res.error) {
+    alert('Could not save question: ' + res.error.message);
+    return;
+  }
+
+  alert('Question saved successfully!');
+
+  await loadData();
+  render();
+}
 // MEDPREP: PASTE AND FORMAT QUESTIONS
 
 function addPasteEditor() {

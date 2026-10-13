@@ -236,10 +236,202 @@ if(page==='admin'&&profile?.role==='admin')addPasteEditor();
 bind()}
 function dashboard(){return `<div class="head"><div><div class="eyebrow">Your learning workspace</div><h1>Dashboard</h1><p class="sub">Build clinical reasoning, one question at a time.</p></div><button class="btn primary" onclick="startSession(questions.map(q=>q.id))">▶ Start studying</button></div><div class="stats"><div class="stat"><label>Available questions</label><strong>${questions.length}</strong></div><div class="stat"><label>Questions answered</label><strong>${attempts.length}</strong></div><div class="stat"><label>Correct attempts</label><strong>${countCorrect()}</strong></div><div class="stat"><label>Accuracy</label><strong>${accuracy()}%</strong></div></div><div class="card"><h2>Browse by specialty</h2><div class="grid3">${[...new Set(questions.map(q=>q.specialty))].map(s=>`<button class="tile" onclick="openSpecialty('${esc(s)}')"><strong>${esc(s)}</strong><span>${questions.filter(q=>q.specialty===s).length} questions</span></button>`).join('')||'<p class="muted">Questions added by the administrator will appear here.</p>'}</div></div><div class="card"><h2>Recently added</h2><div class="list">${questions.slice(0,4).map(row).join('')||'<div class="empty">No published questions yet.</div>'}</div></div>`}
 function row(q){return `<div class="row"><div><h3>${esc(q.title)}</h3><div class="meta"><span class="tag">${esc(q.specialty)}</span><span class="tag">${esc(q.topic)}</span><span>${esc(q.difficulty||'Unrated')}</span></div></div><div class="rowactions"><button class="btn small" onclick="openQuestion('${q.id}')">Open question</button></div></div>`}
-function bank(){return `<div class="head"><div><div class="eyebrow">Study library</div><h1>Question bank</h1><p class="sub">Search and filter available questions.</p></div></div><div class="filters"><input id="search" placeholder="Search title, stem, topic…"><select id="specialty"><option>All specialties</option>${[...new Set(questions.map(q=>q.specialty))].sort().map(s=>`<option>${esc(s)}</option>`).join('')}</select><select id="difficulty"><option>All difficulties</option><option>Basic</option><option>Intermediate</option><option>Advanced</option></select></div><div id="results" class="list">${questions.map(row).join('')||'<div class="empty">No questions available yet.</div>'}</div>`}
+function bank(){
+  const systems = [...new Set(
+    questions
+      .filter(q => q.status === undefined || q.status === 'published')
+      .map(q => q.specialty)
+      .filter(Boolean)
+  )].sort();
+
+  return `
+    <div class="head">
+      <div>
+        <div class="eyebrow">MedPrep Testing</div>
+        <h1>Build Your Session</h1>
+        <p class="sub">Customize your test before starting.</p>
+      </div>
+    </div>
+
+    <div class="card" style="padding:22px;max-width:850px;margin:0 auto">
+
+      <label for="testMode"><strong>1. Test Mode</strong></label>
+      <select id="testMode" style="width:100%;margin:10px 0 22px">
+        <option value="tutor">Tutor Mode</option>
+        <option value="exam">Exam Mode</option>
+        <option value="timed">Timed Mode</option>
+      </select>
+
+      <label for="questionMode"><strong>2. Question Mode</strong></label>
+      <select id="questionMode" style="width:100%;margin:10px 0 22px">
+        <option value="unused">Unused Questions</option>
+        <option value="used">Used Questions</option>
+        <option value="correct">Previously Correct</option>
+        <option value="incorrect">Previously Incorrect</option>
+        <option value="omitted" disabled>Omitted — Coming Soon</option>
+        <option value="marked">Marked Questions</option>
+        <option value="all">All Questions</option>
+      </select>
+
+      <label for="sessionSystem"><strong>3. System / Specialty</strong></label>
+      <select id="sessionSystem" style="width:100%;margin:10px 0 22px">
+        <option value="all">All Systems</option>
+        ${systems.map(s =>
+          `<option value="${esc(s)}">${esc(s)}</option>`
+        ).join('')}
+      </select>
+
+      <label for="sessionTopic"><strong>4. Topic / Chapter</strong></label>
+      <select id="sessionTopic" style="width:100%;margin:10px 0 22px">
+        <option value="all">All Topics</option>
+      </select>
+
+      <label for="sessionCount"><strong>5. Questions per Session</strong></label>
+      <input
+        id="sessionCount"
+        type="number"
+        min="1"
+        max="200"
+        step="1"
+        value="20"
+        inputmode="numeric"
+        style="width:100%;margin:10px 0 8px"
+      >
+
+      <p class="sub" style="margin-bottom:22px">
+        Enter a number from 1 to 200.
+      </p>
+
+      <div id="sessionAvailability"
+        style="padding:16px;border-radius:12px;background:var(--surface,#f3f4f6);margin-bottom:18px">
+        Checking available questions...
+      </div>
+
+      <button
+        id="startConfiguredSession"
+        class="primary"
+        type="button"
+        style="width:100%">
+        Start Session
+      </button>
+
+      <p class="sub" style="margin-top:14px">
+        Questions will appear only after you start the session.
+      </p>
+
+    </div>
+  `;
+}
 function questionList(title,list){return `<div class="head"><div><div class="eyebrow">Personal review</div><h1>${title}</h1><p class="sub">${list.length} questions</p></div></div><div class="list">${list.map(row).join('')||'<div class="empty">Nothing to review yet.</div>'}</div>`}
 function openSpecialty(s){page='bank';render();setTimeout(()=>{if($('specialty')){$('specialty').value=s;filterBank()}},0)}
-function filterBank(){const text=$('search').value.toLowerCase(),sp=$('specialty').value,d=$('difficulty').value;const list=questions.filter(q=>(sp==='All specialties'||q.specialty===sp)&&(d==='All difficulties'||q.difficulty===d)&&[q.title,q.stem,q.topic,q.specialty].join(' ').toLowerCase().includes(text));$('results').innerHTML=list.map(row).join('')||'<div class="empty">No matches.</div>'}
+function getSessionCandidates(){
+  const mode = $('questionMode')?.value || 'unused';
+  const system = $('sessionSystem')?.value || 'all';
+  const topic = $('sessionTopic')?.value || 'all';
+
+  const latest = new Map();
+
+  [...attempts]
+    .sort((a,b) => new Date(a.created_at) - new Date(b.created_at))
+    .forEach(a => latest.set(a.question_id, a));
+
+  return questions.filter(q => {
+    if (q.status !== undefined && q.status !== 'published') return false;
+    if (system !== 'all' && q.specialty !== system) return false;
+    if (topic !== 'all' && q.topic !== topic) return false;
+
+    const attempt = latest.get(q.id);
+    const marked = bookmarks.includes(q.id);
+
+    if (mode === 'unused') return !attempt;
+    if (mode === 'used') return !!attempt;
+    if (mode === 'correct') return !!attempt && attempt.is_correct === true;
+    if (mode === 'incorrect') return !!attempt && attempt.is_correct === false;
+    if (mode === 'marked') return marked;
+    if (mode === 'omitted') return false;
+
+    return mode === 'all';
+  });
+}
+
+function updateSessionTopics(){
+  const system = $('sessionSystem').value;
+
+  const topics = [...new Set(
+    questions
+      .filter(q => q.status === undefined || q.status === 'published')
+      .filter(q => system === 'all' || q.specialty === system)
+      .map(q => q.topic)
+      .filter(Boolean)
+  )].sort();
+
+  $('sessionTopic').innerHTML =
+    '<option value="all">All Topics</option>' +
+    topics.map(t =>
+      `<option value="${esc(t)}">${esc(t)}</option>`
+    ).join('');
+
+  updateSessionAvailability();
+}
+
+function updateSessionAvailability(){
+  const box = $('sessionAvailability');
+  if (!box) return;
+
+  const count = Number($('sessionCount').value);
+
+  if (!Number.isInteger(count) || count < 1 || count > 200) {
+    box.innerHTML =
+      '<strong>Enter a whole number between 1 and 200.</strong>';
+    return;
+  }
+
+  const available = getSessionCandidates().length;
+
+  box.innerHTML = `
+    <strong>${available} questions available</strong>
+    <p style="margin:8px 0 0">
+      Requested session: ${count} questions
+    </p>
+    <p style="margin:5px 0 0">
+      ${available >= count
+        ? 'You have enough questions to start.'
+        : `You need ${count - available} more matching questions.`}
+    </p>
+  `;
+}
+
+function startConfiguredSession(){
+  const count = Number($('sessionCount').value);
+
+  if (!Number.isInteger(count) || count < 1 || count > 200) {
+    alert('Choose a whole number between 1 and 200.');
+    return;
+  }
+
+  const candidates = getSessionCandidates();
+
+  if (candidates.length < count) {
+    alert(
+      `Only ${candidates.length} matching questions are available. ` +
+      'Reduce your session size or change your filters.'
+    );
+    return;
+  }
+
+  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+  const selectedQuestions = shuffled.slice(0, count);
+
+  window.medprepSessionConfig = {
+    mode: $('testMode').value,
+    questionMode: $('questionMode').value,
+    system: $('sessionSystem').value,
+    topic: $('sessionTopic').value,
+    count
+  };
+
+  startSession(selectedQuestions.map(q => q.id));
+}
 async function openQuestion(id){activeQ=questions.find(q=>q.id===id);selected=null;revealed=false;answerResult=null;sessionIds=[id];sessionIndex=0;page='solve';render()}
 function startSession(ids){if(!ids.length){alert('No questions available yet.');return}sessionIds=ids;sessionIndex=0;activeQ=questions.find(q=>q.id===ids[0]);selected=null;revealed=false;answerResult=null;page='solve';render()}
 function solve(){
@@ -717,6 +909,19 @@ function clearForm(){if($('qform'))$('qform').reset();if($('qid'))$('qid').value
 async function saveQ(e){e.preventDefault();const id=$('qid').value;const payload={specialty:$('fSpecialty').value.trim(),topic:$('fTopic').value.trim(),subtopic:$('fSubtopic').value.trim(),difficulty:$('fDifficulty').value,title:$('fTitle').value.trim(),stem:$('fStem').value.trim(),choices:'ABCDE'.split('').map((l,i)=>$('fC'+i).value.trim()),correct_option:Number($('fCorrect').value),summary:parseLines($('fSummary').value,3),reason:$('fReason').value.trim(),pathophys:$('fPathophys').value.trim(),distractors:parseLines($('fDistractors').value,3),pearls:$('fPearls').value.split('\n').map(x=>x.trim()).filter(Boolean),objectives:$('fObjectives').value.trim(),references:$('fReferences').value.trim(),status:$('fStatus').value};let res=id?await sb.from('questions').update(payload).eq('id',id):await sb.from('questions').insert({...payload,created_by:user.id});if(res.error){alert(res.error.message);return}alert('Saved.');await loadData();render()}
 function editQ(id){const q=questions.find(x=>x.id===id);if(!q)return;const set=(k,v)=>{if($(k))$(k).value=v??''};set('qid',q.id);set('fSpecialty',q.specialty);set('fTopic',q.topic);set('fSubtopic',q.subtopic);set('fDifficulty',q.difficulty);set('fTitle',q.title);set('fStem',q.stem);(q.choices||[]).forEach((v,i)=>set('fC'+i,v));set('fCorrect',q.correct_option);set('fStatus',q.status);set('fSummary',(q.summary||[]).map(r=>r.join(' | ')).join('\n'));set('fReason',q.reason);set('fPathophys',q.pathophys);set('fDistractors',(q.distractors||[]).map(r=>r.join(' | ')).join('\n'));set('fPearls',(q.pearls||[]).join('\n'));set('fObjectives',q.objectives);set('fReferences',q.references);set('formTitle','Edit question');window.scrollTo({top:0,behavior:'smooth'})}
 async function deleteQ(id){if(!confirm('Delete this question? Related attempts/bookmarks may also be deleted.'))return;const {error}=await sb.from('questions').delete().eq('id',id);if(error)alert(error.message);await loadData();render()}
-function bind(){if(page==='bank'){['search','specialty','difficulty'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',filterBank))}if(page==='admin'&&profile?.role==='admin')$('qform').addEventListener('submit',saveQ)}
+function bind(){
+  if(page==='bank'){
+    $('questionMode').addEventListener('change',updateSessionAvailability);
+    $('sessionSystem').addEventListener('change',updateSessionTopics);
+    $('sessionTopic').addEventListener('change',updateSessionAvailability);
+    $('sessionCount').addEventListener('input',updateSessionAvailability);
+    $('startConfiguredSession').addEventListener('click',startConfiguredSession);
+    updateSessionTopics();
+  }
+
+  if(page==='admin'&&profile?.role==='admin'){
+    $('qform').addEventListener('submit',saveQ);
+  }
+}
 init();
 </script></body></html>

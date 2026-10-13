@@ -145,29 +145,33 @@ border-color: #43586b;
 /* FIX MEDPREP HEADER */
 .top {
 height: auto;
+min-height: 0;
 flex-wrap: wrap;
-align-items: center;
-gap: 10px;
+align-items: flex-start;
+gap: 4px;
+padding-bottom: 8px;
 }
-
 
 .topright {
 display: flex;
 align-items: center;
 justify-content: flex-start;
 flex-wrap: wrap;
-gap: 6px;
+gap: 5px;
 width: 100%;
 box-sizing: border-box;
+margin: 0;
 }
-
 
 .topright .btn {
 white-space: nowrap;
 }
 
-
 @media (max-width: 600px) {
+.top {
+padding-top: 6px;
+}
+
 .topright {
 justify-content: flex-start;
 }
